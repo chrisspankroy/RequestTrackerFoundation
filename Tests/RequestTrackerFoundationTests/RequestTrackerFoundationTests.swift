@@ -6,6 +6,6 @@ final class RequestTrackerFoundationTests: XCTestCase {
         // This is an example of a functional test case.
         // Use XCTAssert and related functions to verify your tests produce the correct
         // results.
-        XCTAssertEqual(RequestTrackerFoundation(rtServerUrl: URL(string: "")!).text, "Hello, World!")
+        //XCTAssertEqual(RequestTrackerFoundation(rtServerUrl: URL(string: "")!).text, "Hello, World!")
     }
 }
