@@ -1,7 +1,23 @@
 import Foundation
 
 public enum RequestTrackerFoundationError : Error {
-    case ServerIsNotRT, UnknownErrorCode, InvalidCredentials
+    case ServerIsNotRT
+    case InvalidCredentials
+    case RequestTrackerFoundationNotInitialized
+    case InvalidResponseFromServer
+    case FailedToDecodeJSON
+}
+
+extension RequestTrackerFoundationError: LocalizedError {
+    public var errorDescription: String? {
+        switch self {
+        case .ServerIsNotRT: return "Unable to verify that the provided server is running RT. Make sure v2 of the REST API is running at '/REST/2.0'"
+        case .InvalidCredentials: return "The provided credentials were not accepted by the server"
+        case .RequestTrackerFoundationNotInitialized: return "You must initialize a RequestTrackerFoundation object before calling this function"
+        case .InvalidResponseFromServer: return "The response returned from the server did not contain the JSON keys usually included in this type of response"
+        case .FailedToDecodeJSON: return "Decoding the JSON data from the server failed"
+        }
+    }
 }
 
 public struct RequestTrackerFoundation {
@@ -22,31 +38,37 @@ public struct RequestTrackerFoundation {
         self.urlSession = URLSession(configuration: .default)
     
         // Validate given URL is a RT server running REST 2 API
-        // There isn't an endpoint for this, so I make 2 requests to somewhat handle it
-        // One to /REST/2.0/queues/all with no creds that should return 401
-        // And one to /REST/2.0/queues/all with creds that should return 200
-        // This has the benefit of validating credentials too
-        var endpoint = Endpoint(urlSession: self.urlSession!, host: self.rtServerHost, path: "/queues/all", authenticationType: .None, credentials: "")
+        // This validates credentials as well
+        var endpoint = Endpoint(urlSession: self.urlSession!, host: self.rtServerHost, path: "/rt", authenticationType: .None, credentials: "")
         try await endpoint.makeRequest()
-        if endpoint.response != nil && endpoint.responseData != nil {
-            if endpoint.response!.statusCode != 401 {
-                throw RequestTrackerFoundationError.ServerIsNotRT
+        if endpoint.response != nil {
+            switch endpoint.response!.statusCode {
+            case 401: break
+            default: throw RequestTrackerFoundationError.ServerIsNotRT
             }
         }
         
-        endpoint = Endpoint(urlSession: self.urlSession!, host: self.rtServerHost, path: "/queues/all", authenticationType: self.authenticationType, credentials: credentials)
+        endpoint = Endpoint(urlSession: self.urlSession!, host: self.rtServerHost, path: "/rt", authenticationType: authenticationType, credentials: credentials)
         try await endpoint.makeRequest()
-        if endpoint.response != nil {
+        if endpoint.response != nil && endpoint.responseData != nil {
             switch endpoint.response!.statusCode {
             case 200: break
             case 401: throw RequestTrackerFoundationError.InvalidCredentials
             default: throw RequestTrackerFoundationError.ServerIsNotRT
+            }
+            print("Status code looks OK, verifying actual response...")
+            do {
+                var json = try JSONSerialization.jsonObject(with: endpoint.responseData!) as? [String : Any]
+                if json!["Version"] == nil {
+                    throw RequestTrackerFoundationError.ServerIsNotRT
+                }
+            }
+            catch {
+                throw RequestTrackerFoundationError.ServerIsNotRT
             }
         }
         
         print("Host \(rtServerHost) verified as RT server running v2 of REST API")
         print("Request Tracker Foundation initialized")
     }
-    
-    
 }

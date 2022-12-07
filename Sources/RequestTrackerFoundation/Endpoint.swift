@@ -11,14 +11,21 @@ enum EndpointError : Error {
     case InvalidCredentials
 }
 
+extension EndpointError: LocalizedError {
+    public var errorDescription: String? {
+        switch self {
+        case .InvalidCredentials: return "The provided basic credentials are not in the username:password format"
+        }
+    }
+}
+
 public enum AuthenticationType : String {
     case BasicAuth, TokenAuth, None
 }
 
 class Endpoint {
     var urlSession : URLSession
-    var host : String
-    var path : String
+    var url : URLComponents
     var authenticationType : AuthenticationType
     var credentials : String
     var response : HTTPURLResponse?
@@ -29,20 +36,28 @@ class Endpoint {
     
     init(urlSession : URLSession, host : String, path : String, authenticationType: AuthenticationType, credentials : String, successCode : Int? = nil) {
         self.urlSession = urlSession
-        self.host = host
-        self.path = "/REST/2.0" + path
+        var components = URLComponents()
+        // This should be https
+        components.scheme = "http"
+        components.host = host
+        components.path = "/REST/2.0" + path
+        self.url = components
+        self.authenticationType = authenticationType
+        self.credentials = credentials
+        self.successCode = successCode
+    }
+    
+    init(urlSession : URLSession, url : URL, authenticationType: AuthenticationType, credentials : String, successCode : Int? = nil) {
+        self.urlSession = urlSession
+        self.url = URLComponents(url: url, resolvingAgainstBaseURL: false)!
         self.authenticationType = authenticationType
         self.credentials = credentials
         self.successCode = successCode
     }
 
     func makeRequest() async throws {
-        var endpointURL = URLComponents()
-        endpointURL.host = self.host
         // this should be https
-        endpointURL.scheme = "http"
-        endpointURL.path = self.path
-        var urlRequest = URLRequest(url: endpointURL.url!)
+        var urlRequest = URLRequest(url: self.url.url!)
         urlRequest.httpMethod = "GET"
         urlRequest.setValue("RequestTrackerFoundation/1.0", forHTTPHeaderField: "User-Agent")
         
@@ -56,7 +71,6 @@ class Endpoint {
         else if self.authenticationType == .TokenAuth {
             urlRequest.setValue("token \(self.credentials)", forHTTPHeaderField: "Authorization")
         }
-        
         let (data, response) = try await self.urlSession.data(for: urlRequest)
         self.response = response as? HTTPURLResponse
         self.responseData = data
