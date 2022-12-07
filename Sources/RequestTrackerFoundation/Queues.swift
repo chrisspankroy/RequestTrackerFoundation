@@ -14,11 +14,11 @@ extension RequestTrackerFoundation {
         if self.urlSession == nil {
             throw RequestTrackerFoundationError.RequestTrackerFoundationNotInitialized
         }
-        var endpoint = Endpoint(urlSession: self.urlSession!, host: self.rtServerHost, path: "/queues/all", authenticationType: self.authenticationType, credentials: self.credentials)
+        let endpoint = Endpoint(urlSession: self.urlSession!, host: self.rtServerHost, path: "/queues/all", authenticationType: self.authenticationType, credentials: self.credentials)
         try await endpoint.makeRequest()
-        var json = try JSONSerialization.jsonObject(with: endpoint.responseData!) as? [String : Any]
+        let json = try JSONSerialization.jsonObject(with: endpoint.responseData!) as? [String : Any]
         if keysExist(dict: json!, keysToCheck: ["page", "total", "pages", "count", "per_page", "items"]) {
-            var queues = try await fetchAndMergePaginatedData(firstPage: json!, urlSession: self.urlSession!, host: self.rtServerHost, authenticationType: authenticationType, credentials: credentials)
+            let queues = try await fetchAndMergePaginatedData(firstPage: json!, urlSession: self.urlSession!, host: self.rtServerHost, authenticationType: authenticationType, credentials: credentials)
             if queues.count == 0 {
                 return nil
             }
@@ -50,11 +50,10 @@ extension RequestTrackerFoundation {
         }
         var detailedQueues = [Queue]()
         for rtobject in queues {
-            var endpoint = Endpoint(urlSession: self.urlSession!, url: rtobject._url, authenticationType: self.authenticationType, credentials: self.credentials)
+            let endpoint = Endpoint(urlSession: self.urlSession!, url: rtobject._url, authenticationType: self.authenticationType, credentials: self.credentials)
             try await endpoint.makeRequest()
-            var json = try JSONSerialization.jsonObject(with: endpoint.responseData!) as? [String : Any]
-            var idk = json as? [String:Any]
-            let queue = try JSONDecoder().decode(Queue.self, from: JSONSerialization.data(withJSONObject: idk))
+            let json = try JSONSerialization.jsonObject(with: endpoint.responseData!)
+            let queue = try JSONDecoder().decode(Queue.self, from: JSONSerialization.data(withJSONObject: json))
             detailedQueues.append(queue)
         }
         return detailedQueues

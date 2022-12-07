@@ -57,11 +57,11 @@ func fetchAndMergePaginatedData(firstPage: [String : Any], urlSession: URLSessio
     var returnDict = firstPage["items"] as! Array<[String:Any]>
     var next_page_url = URL(string: firstPage["next_page"] as! String)
     while next_page_url != nil {
-        var endpoint = Endpoint(urlSession: urlSession, url: next_page_url!, authenticationType: authenticationType, credentials: credentials)
+        let endpoint = Endpoint(urlSession: urlSession, url: next_page_url!, authenticationType: authenticationType, credentials: credentials)
         try await endpoint.makeRequest()
         if endpoint.response?.statusCode == 200 {
             do {
-                var json = try JSONSerialization.jsonObject(with: endpoint.responseData!) as? [String : Any]
+                let json = try JSONSerialization.jsonObject(with: endpoint.responseData!) as? [String : Any]
                 if validatePaginatedResponse(page: json) {
                     do {
                         returnDict = try mergeDicts(lhs: returnDict, rhs: json!["items"])

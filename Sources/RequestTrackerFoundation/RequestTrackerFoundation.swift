@@ -58,7 +58,7 @@ public struct RequestTrackerFoundation {
             }
             print("Status code looks OK, verifying actual response...")
             do {
-                var json = try JSONSerialization.jsonObject(with: endpoint.responseData!) as? [String : Any]
+                let json = try JSONSerialization.jsonObject(with: endpoint.responseData!) as? [String : Any]
                 if json!["Version"] == nil {
                     throw RequestTrackerFoundationError.ServerIsNotRT
                 }
