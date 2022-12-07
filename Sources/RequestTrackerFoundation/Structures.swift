@@ -20,13 +20,13 @@ public struct Queue : Codable {
     var SLADisabled : String
     var TicketTransactionCustomFields : Array<String>
     var Disabled : String
-    var Cc : Array<String>
+    var Cc : Array<RTObject>
     var id : Int
     var LastUpdated : String
     var Name : String
     var Description : String
     var Creator : RTObject
-    var AdminCc : Array<String>
+    var AdminCc : Array<RTObject>
     var LastUpdatedBy : RTObject
     var _hyperlinks : Array<[String:String]>
     var CustomFields : Array<String>
