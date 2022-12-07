@@ -1,5 +1,8 @@
 import Foundation
 
+/**
+ Provides core errors that can be thrown by RequestTrackerFoundation
+ */
 public enum RequestTrackerFoundationError : Error {
     case ServerIsNotRT
     case InvalidCredentials
@@ -8,6 +11,10 @@ public enum RequestTrackerFoundationError : Error {
     case FailedToDecodeJSON
 }
 
+/**
+ An extension for `RequestTrackerFoundationError` that provides error descriptions
+
+ */
 extension RequestTrackerFoundationError: LocalizedError {
     public var errorDescription: String? {
         switch self {
@@ -20,6 +27,9 @@ extension RequestTrackerFoundationError: LocalizedError {
     }
 }
 
+/**
+ A class that represents this framework. This is the entry point and must be instantiated before other methods can be called.
+ */
 public struct RequestTrackerFoundation {
 
     var rtServerHost : String
@@ -27,6 +37,14 @@ public struct RequestTrackerFoundation {
     var credentials : String
     var urlSession : URLSession?
     
+    /**
+     Instantiates a new RequestTrackerFoundation
+     
+     - Parameters:
+        - rtServerHost: The hostname of the RT server (for example: rt.example.com)
+        - authenticationType: The `AuthenticationType` to use for authentication
+        - credentials: The credentials to use for authentication. Should be applicable to `authenticationType`
+     */
     public init(rtServerHost : String, authenticationType : AuthenticationType, credentials : String) async throws {
         print("Initializing RequestTrackerFoundation...")
         

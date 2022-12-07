@@ -7,14 +7,20 @@
 
 import Foundation
 
+/**
+ A struct that represents a generic RT Object
+ */
 public struct RTObject : Codable {
     var id : String
     var _url : URL
     var type : String
 }
 
-// Some of these types need to be changed to be more specific
+/**
+ A struct that represents a RT queue
+ */
 public struct Queue : Codable {
+    // TODO: Some of these types need to be changed to be more specific
     var SortOrder : String
     var CommentAddress : String
     var SLADisabled : String

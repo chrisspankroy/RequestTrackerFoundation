@@ -7,9 +7,15 @@
 
 import Foundation
 
+/**
+ An extension for RequestTrackerFoundation that provides functionality for interacting with queues
+ */
 extension RequestTrackerFoundation {
     
-    // Gets all queues that the user has access to see
+    /**
+     Gets limited information of all queues that are visible to the current user.
+     - Returns: An `Array` of `RTObject`s that represents all visible queues. Pass to `getQueues()` for detailed queue information
+     */
     public func getAllQueues() async throws -> [RTObject]? {
         if self.urlSession == nil {
             throw RequestTrackerFoundationError.RequestTrackerFoundationNotInitialized
@@ -44,6 +50,12 @@ extension RequestTrackerFoundation {
     }
     
     // queues can be output from getAllQueues. This gets more detailed info about each queue
+    /**
+     Gets detailed information of all queues that are visible to the current user.
+     - Parameters:
+        - queues: An array of `RTObject`s that should represent queues
+     - Returns: An `Array` of `Queue`s that represents all visible queues
+     */
     public func getQueues(queues: [RTObject]) async throws -> [Queue]? {
         if self.urlSession == nil {
             throw RequestTrackerFoundationError.RequestTrackerFoundationNotInitialized

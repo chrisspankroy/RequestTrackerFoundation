@@ -7,10 +7,16 @@
 
 import Foundation
 
+/**
+ Provides possible errors that can be thrown when running a utility function
+ */
 enum UtilityError : Error {
     case InvalidFirstPage, FailedToFetchPaginatedData, UnableToMergeDictionaries
 }
 
+/**
+ An extension for `UtilityError` that provides error descriptions
+ */
 extension UtilityError: LocalizedError {
     public var errorDescription: String? {
         switch self {
@@ -21,6 +27,15 @@ extension UtilityError: LocalizedError {
     }
 }
 
+/**
+ Checks if the provided keys exist
+ 
+ - Parameters:
+    - dict: The dictionary to check
+    - keysToCheck: An `Array` of keys to verify exist
+ 
+ - Returns: `true` if all keys exist. `false` otherwise
+ */
 func keysExist(dict: [String : Any], keysToCheck: [String]) -> Bool {
     for key in keysToCheck {
         if dict[key] == nil {
@@ -30,6 +45,14 @@ func keysExist(dict: [String : Any], keysToCheck: [String]) -> Bool {
     return true
 }
 
+/**
+ Validates that a paginated response from RT is valid
+ 
+ - Parameters:
+    - page: The raw paginated JSON data from the server
+ 
+ - Returns: `true` if the page is valid. `false` otherwise
+ */
 func validatePaginatedResponse(page : [String : Any]?) -> Bool {
     if page == nil {
         return false
@@ -39,12 +62,33 @@ func validatePaginatedResponse(page : [String : Any]?) -> Bool {
 
 // Returns a NEW merged dict
 // Currently allows duplicates
+/**
+ Creates a new dictionary that is the result of merging `lhs` and `rhs`. Duplicate values are allowed
+ 
+ - Parameters:
+    - lhs: One dictionary to merge
+    - rhs: The other dictionary to merge
+ 
+ - Returns: A new dictionary that is the result of merging `lhs` and `rhs`
+ */
 func mergeDicts(lhs: Any?, rhs: Any?) throws -> Array<[String:Any]> {
     let left = lhs as! Array<[String:Any]>
     let right = rhs as! Array<[String:Any]>
     return left + right
 }
 
+/**
+ Takes the first page of paginated data, and fetches/merges the rest of the pages
+ 
+ - Parameters:
+    - firstPage: The raw JSON representing the first page
+    - urlSession: The `URLSession` that the rest of the data should be fetched in
+    - host: The host that should be queried. Should be equivalent to `rtServerHost`
+    - authenticationType: The `AuthenticationType` to use for authentication
+    - credentials: The credentials to use for authentication. Should be applicable to `authenticationType`
+ 
+ - Returns: A de-paginated array of dictionaries
+ */
 func fetchAndMergePaginatedData(firstPage: [String : Any], urlSession: URLSession, host: String, authenticationType: AuthenticationType, credentials: String) async throws -> Array<[String : Any]> {
     if firstPage["next_page"] == nil && firstPage["prev_page"] == nil {
         // If these doesn't exist, then there is only one page
