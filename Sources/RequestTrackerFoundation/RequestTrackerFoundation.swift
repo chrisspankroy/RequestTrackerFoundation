@@ -9,6 +9,8 @@ public enum RequestTrackerFoundationError : Error {
     case RequestTrackerFoundationNotInitialized
     case InvalidResponseFromServer
     case FailedToDecodeJSON
+    case FailedToEncodeJSON
+    case FailedToCreateTicket
 }
 
 /**
@@ -23,6 +25,8 @@ extension RequestTrackerFoundationError: LocalizedError {
         case .RequestTrackerFoundationNotInitialized: return "You must initialize a RequestTrackerFoundation object before calling this function"
         case .InvalidResponseFromServer: return "The response returned from the server did not contain the JSON keys usually included in this type of response"
         case .FailedToDecodeJSON: return "Decoding the JSON data from the server failed"
+        case .FailedToEncodeJSON: return "Encoding the JSON data to send to the server failed"
+        case .FailedToCreateTicket: return "Unable to create a ticket. See console for more information"
         }
     }
 }
@@ -57,7 +61,7 @@ public struct RequestTrackerFoundation {
     
         // Validate given URL is a RT server running REST 2 API
         // This validates credentials as well
-        var endpoint = Endpoint(urlSession: self.urlSession!, host: self.rtServerHost, path: "/rt", authenticationType: .None, credentials: "")
+        var endpoint = Endpoint(urlSession: self.urlSession!, host: self.rtServerHost, path: "/rt", authenticationType: .None, credentials: "", method: HTTPMethod.GET)
         try await endpoint.makeRequest()
         if endpoint.response != nil {
             switch endpoint.response!.statusCode {
@@ -66,7 +70,7 @@ public struct RequestTrackerFoundation {
             }
         }
         
-        endpoint = Endpoint(urlSession: self.urlSession!, host: self.rtServerHost, path: "/rt", authenticationType: authenticationType, credentials: credentials)
+        endpoint = Endpoint(urlSession: self.urlSession!, host: self.rtServerHost, path: "/rt", authenticationType: authenticationType, credentials: credentials, method: HTTPMethod.GET)
         try await endpoint.makeRequest()
         if endpoint.response != nil && endpoint.responseData != nil {
             switch endpoint.response!.statusCode {

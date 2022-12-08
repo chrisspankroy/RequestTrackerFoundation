@@ -16,11 +16,11 @@ extension RequestTrackerFoundation {
      Gets limited information of all queues that are visible to the current user.
      - Returns: An `Array` of `RTObject`s that represents all visible queues. Pass to `getQueues()` for detailed queue information
      */
-    public func getAllQueues() async throws -> [RTObject]? {
+    public func getQueueRefs() async throws -> [RTObject]? {
         if self.urlSession == nil {
             throw RequestTrackerFoundationError.RequestTrackerFoundationNotInitialized
         }
-        let endpoint = Endpoint(urlSession: self.urlSession!, host: self.rtServerHost, path: "/queues/all", authenticationType: self.authenticationType, credentials: self.credentials)
+        let endpoint = Endpoint(urlSession: self.urlSession!, host: self.rtServerHost, path: "/queues/all", authenticationType: self.authenticationType, credentials: self.credentials, method: HTTPMethod.GET)
         try await endpoint.makeRequest()
         let json = try JSONSerialization.jsonObject(with: endpoint.responseData!) as? [String : Any]
         if keysExist(dict: json!, keysToCheck: ["page", "total", "pages", "count", "per_page", "items"]) {
@@ -49,7 +49,7 @@ extension RequestTrackerFoundation {
         }
     }
     
-    // queues can be output from getAllQueues. This gets more detailed info about each queue
+    // queues can be output from getQueueRefs. This gets more detailed info about each queue
     /**
      Gets detailed information of all queues that are visible to the current user.
      - Parameters:
@@ -62,7 +62,7 @@ extension RequestTrackerFoundation {
         }
         var detailedQueues = [Queue]()
         for rtobject in queues {
-            let endpoint = Endpoint(urlSession: self.urlSession!, url: rtobject._url, authenticationType: self.authenticationType, credentials: self.credentials)
+            let endpoint = Endpoint(urlSession: self.urlSession!, url: rtobject._url, authenticationType: self.authenticationType, credentials: self.credentials, method: HTTPMethod.GET)
             try await endpoint.makeRequest()
             let json = try JSONSerialization.jsonObject(with: endpoint.responseData!)
             let queue = try JSONDecoder().decode(Queue.self, from: JSONSerialization.data(withJSONObject: json))

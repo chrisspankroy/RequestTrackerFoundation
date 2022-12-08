@@ -11,7 +11,7 @@ import Foundation
  Provides possible errors that can be thrown when making an endpoint request
  */
 enum EndpointError : Error {
-    case InvalidCredentials
+    case InvalidCredentials, ETagNotSpecified
 }
 
 /**
@@ -21,6 +21,7 @@ extension EndpointError: LocalizedError {
     public var errorDescription: String? {
         switch self {
         case .InvalidCredentials: return "The provided basic credentials are not in the username:password format"
+        case .ETagNotSpecified: return "An ETag value was not provided. While not technically required by RT, RequestTrackerFoundation enforces its use"
         }
     }
 }
@@ -33,6 +34,13 @@ public enum AuthenticationType : String {
 }
 
 /**
+ Provides available HTTP methods
+ */
+public enum HTTPMethod : String {
+    case GET, POST, PUT
+}
+
+/**
  A class that represents an API endpoint
  */
 class Endpoint {
@@ -42,6 +50,10 @@ class Endpoint {
     var credentials : String
     var response : HTTPURLResponse?
     var responseData : Data?
+    var method : HTTPMethod
+    var bodyData : Data?
+    var bodyContentType : String?
+    var etag : String?
     
     /**
      Instantiates a new `Endpoint`.
@@ -52,8 +64,12 @@ class Endpoint {
         - path: The URL path to send the request to. `"/REST/2.0"` is prepended to this
         - authenticationType: The `AuthenticationType` to use for authentication
         - credentials: The credentials to use for authentication. Should be applicable to `authenticationType`
+        - method: The HTTP method to use in the request
+        - bodyData: The data to send in the body of the request. Defaults to `nil`
+        - bodyContentType: The `Content-Type` header to send with the request. Defaults to `nil`
+        - etag: The value of the `If-Match` header to provide. Default to `nil`
      */
-    init(urlSession : URLSession, host : String, path : String, authenticationType: AuthenticationType, credentials : String) {
+    init(urlSession : URLSession, host : String, path : String, authenticationType: AuthenticationType, credentials : String, method : HTTPMethod, bodyData: Data? = nil, bodyContentType: String? = nil, etag: String? = nil) {
         self.urlSession = urlSession
         var components = URLComponents()
         // This should be https
@@ -63,6 +79,10 @@ class Endpoint {
         self.url = components
         self.authenticationType = authenticationType
         self.credentials = credentials
+        self.method = method
+        self.bodyData = bodyData
+        self.bodyContentType = bodyContentType
+        self.etag = etag
     }
     
     /**
@@ -73,21 +93,38 @@ class Endpoint {
         - url: The full `URL`that represents the API endpoint
         - authenticationType: The `AuthenticationType` to use for authentication
         - credentials: The credentials to use for authentication. Should be applicable to `authenticationType`
+        - method: The HTTP method to use in the request
+        - bodyData: The data to send in the body of the request. Defaults to `nil`
+        - bodyContentType: The `Content-Type` header to send with the request. Defaults to `nil`
+        - etag: The value of the `If-Match` header to provide. Default to `nil`
      */
-    init(urlSession : URLSession, url : URL, authenticationType: AuthenticationType, credentials : String) {
+    init(urlSession : URLSession, url : URL, authenticationType: AuthenticationType, credentials : String, method: HTTPMethod, bodyData: Data? = nil, bodyContentType: String? = nil, etag: String? = nil) {
         self.urlSession = urlSession
         self.url = URLComponents(url: url, resolvingAgainstBaseURL: false)!
         self.authenticationType = authenticationType
         self.credentials = credentials
+        self.method = method
+        self.bodyData = bodyData
+        self.bodyContentType = bodyContentType
+        self.etag = etag
     }
 
     /**
      Perform the API request
      */
     func makeRequest() async throws {
-        // this should be https
         var urlRequest = URLRequest(url: self.url.url!)
-        urlRequest.httpMethod = "GET"
+        if self.method == HTTPMethod.POST || self.method == HTTPMethod.PUT {
+            urlRequest.httpBody = self.bodyData
+            urlRequest.setValue(self.bodyContentType, forHTTPHeaderField: "Content-Type")
+        }
+        if self.method == HTTPMethod.PUT {
+            if self.etag == nil {
+                throw EndpointError.ETagNotSpecified
+            }
+            urlRequest.setValue(self.etag!, forHTTPHeaderField: "If-Match")
+        }
+        urlRequest.httpMethod = self.method.rawValue
         urlRequest.setValue("RequestTrackerFoundation/1.0", forHTTPHeaderField: "User-Agent")
         
         if self.authenticationType == .BasicAuth {
