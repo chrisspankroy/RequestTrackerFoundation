@@ -11,7 +11,7 @@ import Foundation
  Provides errors that can be thrown by ticket-related functions
  */
 enum TicketError : Error {
-    case InvalidTicketRef, FailedToGetTicketInfo, PreconditionFailed, FailedToUpdateTicket
+    case InvalidTicketRef, FailedToGetTicketInfo, PreconditionFailed, FailedToUpdateTicket, FailedToReplyToTicket
 }
 
 /**
@@ -25,6 +25,7 @@ extension TicketError: LocalizedError {
         case .FailedToGetTicketInfo: return "The server returned a non-200 status code when requesting ticket information"
         case .PreconditionFailed: return "The server rejected the provided ETag. This means the resource has been updated since it was fetched."
         case .FailedToUpdateTicket: return "Unable to update ticket. See console for more information"
+        case .FailedToReplyToTicket: return "Unable to reply to ticket. See console for more information"
         }
     }
 }
@@ -165,5 +166,91 @@ extension RequestTrackerFoundation {
         else {
             throw TicketError.FailedToGetTicketInfo
         }
+    }
+    
+    /**
+     Posts a reply to an existing ticket. Attachment content must be MIME base64 encoded
+     - Parameters:
+        - ticket: The `Ticket` to update
+        - ticketFields: A dictionary of properties to post to the ticket
+     - Returns: An `Array` of `String`s describing the updates that were made
+     */
+    public func replyToTicket(ticket: Ticket, ticketFields: [String:Any]) async throws -> [String]? {
+        for hyperlink in ticket._hyperlinks {
+            if hyperlink.ref == "correspond" {
+                do {
+                    var data = try JSONSerialization.data(withJSONObject: ticketFields)
+                    let endpoint = Endpoint(urlSession: self.urlSession!, url: hyperlink._url, authenticationType: self.authenticationType, credentials: self.credentials, method: .POST, bodyData: data, bodyContentType: "application/json", etag: ticket.etag)
+                    try await endpoint.makeRequest()
+                    if endpoint.response?.statusCode == 412 {
+                        // Invalid ETag
+                        throw TicketError.PreconditionFailed
+                    }
+                    else if endpoint.response?.statusCode == 201 {
+                        do {
+                            let json = try JSONSerialization.jsonObject(with: endpoint.responseData!)
+                            var answerArr = try JSONDecoder().decode([String].self, from: JSONSerialization.data(withJSONObject: json))
+                            return answerArr
+                        }
+                        catch {
+                            throw RequestTrackerFoundationError.FailedToDecodeJSON
+                        }
+                    }
+                    else {
+                        print("Failed to reply to ticket. Dumping response from server")
+                        print("Response: \(endpoint.response)")
+                        print("Response Data: \(String(data: endpoint.responseData!, encoding: .utf8))")
+                        throw TicketError.FailedToReplyToTicket
+                    }
+                }
+                catch {
+                    throw RequestTrackerFoundationError.FailedToEncodeJSON
+                }
+            }
+        }
+        return nil
+    }
+    
+    /**
+     Posts a comment to an existing ticket. Attachment content must be MIME base64 encoded
+     - Parameters:
+        - ticket: The `Ticket` to update
+        - ticketFields: A dictionary of properties to post to the ticket
+     - Returns: An `Array` of `String`s describing the updates that were made
+     */
+    public func commentTicket(ticket: Ticket, ticketFields: [String:Any]) async throws -> [String]? {
+        for hyperlink in ticket._hyperlinks {
+            if hyperlink.ref == "comment" {
+                do {
+                    var data = try JSONSerialization.data(withJSONObject: ticketFields)
+                    let endpoint = Endpoint(urlSession: self.urlSession!, url: hyperlink._url, authenticationType: self.authenticationType, credentials: self.credentials, method: .POST, bodyData: data, bodyContentType: "application/json", etag: ticket.etag)
+                    try await endpoint.makeRequest()
+                    if endpoint.response?.statusCode == 412 {
+                        // Invalid ETag
+                        throw TicketError.PreconditionFailed
+                    }
+                    else if endpoint.response?.statusCode == 201 {
+                        do {
+                            let json = try JSONSerialization.jsonObject(with: endpoint.responseData!)
+                            var answerArr = try JSONDecoder().decode([String].self, from: JSONSerialization.data(withJSONObject: json))
+                            return answerArr
+                        }
+                        catch {
+                            throw RequestTrackerFoundationError.FailedToDecodeJSON
+                        }
+                    }
+                    else {
+                        print("Failed to reply to ticket. Dumping response from server")
+                        print("Response: \(endpoint.response)")
+                        print("Response Data: \(String(data: endpoint.responseData!, encoding: .utf8))")
+                        throw TicketError.FailedToReplyToTicket
+                    }
+                }
+                catch {
+                    throw RequestTrackerFoundationError.FailedToEncodeJSON
+                }
+            }
+        }
+        return nil
     }
 }
