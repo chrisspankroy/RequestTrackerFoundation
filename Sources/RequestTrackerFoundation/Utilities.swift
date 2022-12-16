@@ -11,7 +11,7 @@ import Foundation
  Provides possible errors that can be thrown when running a utility function
  */
 enum UtilityError : Error {
-    case InvalidFirstPage, FailedToFetchPaginatedData, UnableToMergeDictionaries
+    case InvalidFirstPage, FailedToFetchPaginatedData, UnableToMergeDictionaries, FailedToDecodePage
 }
 
 /**
@@ -23,6 +23,7 @@ extension UtilityError: LocalizedError {
         case .InvalidFirstPage: return "Refusing to fetch/merge paginated data since a page other than the first page was provided"
         case .FailedToFetchPaginatedData: return "A request for a specific page of data failed"
         case .UnableToMergeDictionaries: return "Merging dictionaries failed"
+        case .FailedToDecodePage: return "Decoding a page response to a JSON object failed"
         }
     }
 }
@@ -36,9 +37,12 @@ extension UtilityError: LocalizedError {
  
  - Returns: `true` if all keys exist. `false` otherwise
  */
-func keysExist(dict: [String : Any], keysToCheck: [String]) -> Bool {
+func keysExist(dict: [String : Any]?, keysToCheck: [String]) -> Bool {
+    if dict == nil {
+        return false
+    }
     for key in keysToCheck {
-        if dict[key] == nil {
+        if dict![key] == nil {
             return false
         }
     }
@@ -94,18 +98,19 @@ func fetchAndMergePaginatedData(firstPage: [String : Any], urlSession: URLSessio
         // If these doesn't exist, then there is only one page
         return [firstPage]
     }
-    else if firstPage["prev_page"] != nil {
+    else if (firstPage["prev_page"] != nil || firstPage["items"] as? Array<[String:Any]> == nil || firstPage["next_page"] as? String == nil) {
         throw UtilityError.InvalidFirstPage
     }
-    // Once here, next_page should always exist and prev_page should never exist
+    // Once here, next_page should always exist and prev_page should never exist. The next 2 lines should always succeed
     var returnDict = firstPage["items"] as! Array<[String:Any]>
     var next_page_url = URL(string: firstPage["next_page"] as! String)
+    
     while next_page_url != nil {
         let endpoint = Endpoint(urlSession: urlSession, url: next_page_url!, authenticationType: authenticationType, credentials: credentials, method: HTTPMethod.GET)
-        try await endpoint.makeRequest()
-        if endpoint.response?.statusCode == 200 {
+        let (data, response) = try await endpoint.makeRequest()
+        if response.statusCode == 200 {
             do {
-                let json = try JSONSerialization.jsonObject(with: endpoint.responseData!) as? [String : Any]
+                let json = try JSONSerialization.jsonObject(with: data) as? [String : Any]
                 if validatePaginatedResponse(page: json) {
                     do {
                         returnDict = try mergeDicts(lhs: returnDict, rhs: json!["items"])
@@ -118,12 +123,14 @@ func fetchAndMergePaginatedData(firstPage: [String : Any], urlSession: URLSessio
                     }
                     else {
                         next_page_url = URL(string: (json!["next_page"] as! String))
-                        //print("Setting next URL to \(next_page_url)")
                     }
+                }
+                else {
+                    throw UtilityError.FailedToFetchPaginatedData
                 }
             }
             catch {
-                throw UtilityError.FailedToFetchPaginatedData
+                throw UtilityError.FailedToDecodePage
             }
         }
         else {

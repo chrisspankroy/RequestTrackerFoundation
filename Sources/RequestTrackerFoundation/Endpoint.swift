@@ -11,7 +11,7 @@ import Foundation
  Provides possible errors that can be thrown when making an endpoint request
  */
 enum EndpointError : Error {
-    case InvalidCredentials, ETagNotSpecified
+    case InvalidCredentials, ETagNotSpecified, NetworkRequestFailed
 }
 
 /**
@@ -22,6 +22,7 @@ extension EndpointError: LocalizedError {
         switch self {
         case .InvalidCredentials: return "The provided basic credentials are not in the username:password format"
         case .ETagNotSpecified: return "An ETag value was not provided. While not technically required by RT, RequestTrackerFoundation enforces its use"
+        case .NetworkRequestFailed: return "The network request failed"
         }
     }
 }
@@ -48,8 +49,6 @@ class Endpoint {
     var url : URLComponents
     var authenticationType : AuthenticationType
     var credentials : String
-    var response : HTTPURLResponse?
-    var responseData : Data?
     var method : HTTPMethod
     var bodyData : Data?
     var bodyContentType : String?
@@ -112,7 +111,7 @@ class Endpoint {
     /**
      Perform the API request
      */
-    func makeRequest() async throws {
+    func makeRequest() async throws -> (Data, HTTPURLResponse) {
         var urlRequest = URLRequest(url: self.url.url!)
         if self.method == HTTPMethod.POST || self.method == HTTPMethod.PUT {
             urlRequest.httpBody = self.bodyData
@@ -137,8 +136,12 @@ class Endpoint {
         else if self.authenticationType == .TokenAuth {
             urlRequest.setValue("token \(self.credentials)", forHTTPHeaderField: "Authorization")
         }
-        let (data, response) = try await self.urlSession.data(for: urlRequest)
-        self.response = response as? HTTPURLResponse
-        self.responseData = data
+        do {
+            let (data, response) = try await self.urlSession.data(for: urlRequest)
+            return (data, response as! HTTPURLResponse)
+        }
+        catch {
+            throw EndpointError.NetworkRequestFailed
+        }
     }
 }
