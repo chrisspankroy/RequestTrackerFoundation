@@ -53,6 +53,7 @@ class Endpoint {
     var bodyData : Data?
     var bodyContentType : String?
     var etag : String?
+    var debug : Bool
     
     /**
      Instantiates a new `Endpoint`.
@@ -68,13 +69,16 @@ class Endpoint {
         - bodyContentType: The `Content-Type` header to send with the request. Defaults to `nil`
         - etag: The value of the `If-Match` header to provide. Default to `nil`
      */
-    init(urlSession : URLSession, host : String, path : String, authenticationType: AuthenticationType, credentials : String, method : HTTPMethod, bodyData: Data? = nil, bodyContentType: String? = nil, etag: String? = nil) {
+    init(urlSession : URLSession, host : String, path : String, authenticationType: AuthenticationType, credentials : String, method : HTTPMethod, bodyData: Data? = nil, bodyContentType: String? = nil, etag: String? = nil, query: String? = nil, debug: Bool = false) {
         self.urlSession = urlSession
         var components = URLComponents()
         // This should be https
         components.scheme = "http"
         components.host = host
         components.path = "/REST/2.0" + path
+        components.queryItems = [
+            URLQueryItem(name: "query", value: query),
+        ]
         self.url = components
         self.authenticationType = authenticationType
         self.credentials = credentials
@@ -82,6 +86,7 @@ class Endpoint {
         self.bodyData = bodyData
         self.bodyContentType = bodyContentType
         self.etag = etag
+        self.debug = debug
     }
     
     /**
@@ -97,7 +102,7 @@ class Endpoint {
         - bodyContentType: The `Content-Type` header to send with the request. Defaults to `nil`
         - etag: The value of the `If-Match` header to provide. Default to `nil`
      */
-    init(urlSession : URLSession, url : URL, authenticationType: AuthenticationType, credentials : String, method: HTTPMethod, bodyData: Data? = nil, bodyContentType: String? = nil, etag: String? = nil) {
+    init(urlSession : URLSession, url : URL, authenticationType: AuthenticationType, credentials : String, method: HTTPMethod, bodyData: Data? = nil, bodyContentType: String? = nil, etag: String? = nil, debug: Bool = false) {
         self.urlSession = urlSession
         self.url = URLComponents(url: url, resolvingAgainstBaseURL: false)!
         self.authenticationType = authenticationType
@@ -106,6 +111,7 @@ class Endpoint {
         self.bodyData = bodyData
         self.bodyContentType = bodyContentType
         self.etag = etag
+        self.debug = debug
     }
 
     /**
@@ -137,6 +143,10 @@ class Endpoint {
             urlRequest.setValue("token \(self.credentials)", forHTTPHeaderField: "Authorization")
         }
         do {
+            if self.debug {
+                print("DEBUG: Printing URLRequest before sending:")
+                print(urlRequest)
+            }
             let (data, response) = try await self.urlSession.data(for: urlRequest)
             return (data, response as! HTTPURLResponse)
         }

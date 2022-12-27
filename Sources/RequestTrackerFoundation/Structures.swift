@@ -10,7 +10,7 @@ import Foundation
 /**
  A struct that represents a generic RT Object
  */
-public struct RTObject : Codable {
+public struct RTObject : Codable, Hashable {
     public var id : String
     public var _url : URL
     public var type : String
@@ -19,7 +19,7 @@ public struct RTObject : Codable {
 /**
  A struct that represents a RT API hyperlink
  */
-public struct Hyperlink : Codable {
+public struct Hyperlink : Codable, Hashable {
     public var id : String?
     public var ref : String
     public var type : String?
@@ -33,7 +33,7 @@ public struct Hyperlink : Codable {
 /**
  A struct that represents a RT queue
  */
-public struct Queue : Codable {
+public struct Queue : Codable, Identifiable, Hashable {
     public var SortOrder : String
     public var CommentAddress : String
     public var SLADisabled : String
@@ -62,7 +62,7 @@ public struct Queue : Codable {
 /**
  A struct that represents a RT ticket
  */
-public struct Ticket : Codable {
+public struct Ticket : Codable, Identifiable, Hashable {
     public var etag : String?
     public var AdminCc : Array<RTObject>
     public var Cc : Array<RTObject>

@@ -11,7 +11,7 @@ import Foundation
  Provides errors that can be thrown by ticket-related functions
  */
 enum TicketError : Error {
-    case InvalidTicketRef, FailedToGetTicketInfo, PreconditionFailed, FailedToUpdateTicket, FailedToReplyToTicket, PermissionError, FailedToCreateTicket, FailedToDecodeServerResponse, FailedToCommentOnTicket
+    case InvalidTicketRef, FailedToGetTicketInfo, PreconditionFailed, FailedToUpdateTicket, FailedToReplyToTicket, PermissionError, FailedToCreateTicket, FailedToDecodeServerResponse, FailedToCommentOnTicket, SearchError
 }
 
 /**
@@ -30,6 +30,7 @@ extension TicketError: LocalizedError {
         case .FailedToCreateTicket: return "The server's response indicated non-success while creating the ticket"
         case .FailedToDecodeServerResponse: return "The data returned from the server does not fit the expected schema"
         case .FailedToCommentOnTicket: return "Unable to comment on ticket"
+        case .SearchError: return "Unable to properly encode search query"
         }
     }
 }
@@ -220,6 +221,29 @@ extension RequestTrackerFoundation {
             return ticket
         }
         else {
+            throw TicketError.FailedToDecodeServerResponse
+        }
+    }
+    
+    public func search(query: String) async throws -> [String:Any] {
+        if self.urlSession == nil {
+            throw RequestTrackerFoundationError.RequestTrackerFoundationNotInitialized
+        }
+        let escapedQuery = query.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed)
+        if escapedQuery == nil {
+            throw TicketError.SearchError
+        }
+        let endpoint = Endpoint(urlSession: self.urlSession!, host: self.rtServerHost, path: "/tickets", authenticationType: self.authenticationType, credentials: self.credentials, method: .GET, query: query)
+        let (data, response) = try await endpoint.makeRequest()
+        if response.statusCode == 200 {
+            let json = try JSONSerialization.jsonObject(with: data) as? [String:Any]
+            if json == nil {
+                throw TicketError.FailedToDecodeServerResponse
+            }
+            return json!
+        }
+        else {
+            print("Error code: \(response.statusCode)")
             throw TicketError.FailedToDecodeServerResponse
         }
     }

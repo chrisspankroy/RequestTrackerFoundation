@@ -90,4 +90,27 @@ extension RequestTrackerFoundation {
         }
         return detailedQueues
     }
+    
+    public func getMemberTicketStats(queue: Queue) async throws -> [String:Int] {
+        if self.urlSession == nil {
+            throw RequestTrackerFoundationError.RequestTrackerFoundationNotInitialized
+        }
+        let newResponse = try await search(query: "Queue = '\(queue.Name)' AND Status = 'new'")
+        let openResponse = try await search(query: "Queue = '\(queue.Name)' AND Status = 'open'")
+        let stalledResponse = try await search(query: "Queue = '\(queue.Name)' AND Status = 'stalled'")
+        
+        let numNew = newResponse["total"] as? Int
+        let numOpen = openResponse["total"] as? Int
+        let numStalled = stalledResponse["total"] as? Int
+        
+        if numNew == nil || numOpen == nil || numStalled == nil {
+            throw QueueError.InvalidResponseFromServer
+        }
+        
+        return [
+            "numOpen" : numOpen!,
+            "numNew" : numNew!,
+            "numStalled" : numStalled!
+        ]
+    }
 }
