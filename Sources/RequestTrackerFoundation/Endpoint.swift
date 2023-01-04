@@ -69,7 +69,7 @@ class Endpoint {
         - bodyContentType: The `Content-Type` header to send with the request. Defaults to `nil`
         - etag: The value of the `If-Match` header to provide. Default to `nil`
      */
-    init(urlSession : URLSession, host : String, path : String, authenticationType: AuthenticationType, credentials : String, method : HTTPMethod, bodyData: Data? = nil, bodyContentType: String? = nil, etag: String? = nil, query: String? = nil, debug: Bool = false) {
+    init(urlSession : URLSession, host : String, path : String, authenticationType: AuthenticationType, credentials : String, method : HTTPMethod, bodyData: Data? = nil, bodyContentType: String? = nil, etag: String? = nil, query: String? = nil, fields: String? = nil, debug: Bool = false) {
         self.urlSession = urlSession
         var components = URLComponents()
         // This should be https
@@ -78,6 +78,7 @@ class Endpoint {
         components.path = "/REST/2.0" + path
         components.queryItems = [
             URLQueryItem(name: "query", value: query),
+            URLQueryItem(name: "fields", value: fields)
         ]
         self.url = components
         self.authenticationType = authenticationType

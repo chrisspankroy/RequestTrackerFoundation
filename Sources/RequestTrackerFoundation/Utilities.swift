@@ -96,7 +96,7 @@ func mergeDicts(lhs: Any?, rhs: Any?) throws -> Array<[String:Any]> {
 func fetchAndMergePaginatedData(firstPage: [String : Any], urlSession: URLSession, host: String, authenticationType: AuthenticationType, credentials: String) async throws -> Array<[String : Any]> {
     if firstPage["next_page"] == nil && firstPage["prev_page"] == nil {
         // If these doesn't exist, then there is only one page
-        return [firstPage]
+        return firstPage["items"] as! Array<[String:Any]>
     }
     else if (firstPage["prev_page"] != nil || firstPage["items"] as? Array<[String:Any]> == nil || firstPage["next_page"] as? String == nil) {
         throw UtilityError.InvalidFirstPage

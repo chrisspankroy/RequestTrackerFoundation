@@ -225,7 +225,7 @@ extension RequestTrackerFoundation {
         }
     }
     
-    public func search(query: String) async throws -> [String:Any] {
+    public func search(query: String, fields: String? = nil) async throws -> Array<[String:Any]> {
         if self.urlSession == nil {
             throw RequestTrackerFoundationError.RequestTrackerFoundationNotInitialized
         }
@@ -233,14 +233,14 @@ extension RequestTrackerFoundation {
         if escapedQuery == nil {
             throw TicketError.SearchError
         }
-        let endpoint = Endpoint(urlSession: self.urlSession!, host: self.rtServerHost, path: "/tickets", authenticationType: self.authenticationType, credentials: self.credentials, method: .GET, query: query)
+        let endpoint = Endpoint(urlSession: self.urlSession!, host: self.rtServerHost, path: "/tickets", authenticationType: self.authenticationType, credentials: self.credentials, method: .GET, query: query, fields: fields)
         let (data, response) = try await endpoint.makeRequest()
         if response.statusCode == 200 {
             let json = try JSONSerialization.jsonObject(with: data) as? [String:Any]
             if json == nil {
                 throw TicketError.FailedToDecodeServerResponse
             }
-            return json!
+            return try await fetchAndMergePaginatedData(firstPage: json!, urlSession: self.urlSession!, host: self.rtServerHost, authenticationType: self.authenticationType, credentials: self.credentials)
         }
         else {
             print("Error code: \(response.statusCode)")

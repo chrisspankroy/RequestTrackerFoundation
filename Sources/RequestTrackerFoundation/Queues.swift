@@ -95,22 +95,28 @@ extension RequestTrackerFoundation {
         if self.urlSession == nil {
             throw RequestTrackerFoundationError.RequestTrackerFoundationNotInitialized
         }
-        let newResponse = try await search(query: "Queue = '\(queue.Name)' AND Status = 'new'")
-        let openResponse = try await search(query: "Queue = '\(queue.Name)' AND Status = 'open'")
-        let stalledResponse = try await search(query: "Queue = '\(queue.Name)' AND Status = 'stalled'")
+        let newResponse = try await search(query: "Queue = '\(queue.Name)' AND Status = '__Active__'", fields: "Status")
         
-        let numNew = newResponse["total"] as? Int
-        let numOpen = openResponse["total"] as? Int
-        let numStalled = stalledResponse["total"] as? Int
+        var openCount = 0
+        var newCount = 0
+        var stalledCount = 0
         
-        if numNew == nil || numOpen == nil || numStalled == nil {
-            throw QueueError.InvalidResponseFromServer
+        for ticket in newResponse {
+            if ticket["Status"] as? String == "new" {
+                newCount += 1
+            }
+            else if ticket["Status"] as? String == "open" {
+                openCount += 1
+            }
+            else if ticket["Status"] as? String == "stalled" {
+                stalledCount += 1
+            }
         }
         
         return [
-            "numOpen" : numOpen!,
-            "numNew" : numNew!,
-            "numStalled" : numStalled!
+            "numOpen" : openCount,
+            "numNew" : newCount,
+            "numStalled" : stalledCount
         ]
     }
 }
