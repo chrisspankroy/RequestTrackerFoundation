@@ -41,7 +41,7 @@ extension RequestTrackerFoundation {
         if self.urlSession == nil {
             throw RequestTrackerFoundationError.RequestTrackerFoundationNotInitialized
         }
-        let endpoint = Endpoint(urlSession: self.urlSession!, host: self.rtServerHost, path: "/queues/all", authenticationType: self.authenticationType, credentials: self.credentials, method: HTTPMethod.GET)
+        let endpoint = Endpoint(urlSession: self.urlSession!, host: self.rtServerHost, path: "/queues/all", authenticationType: self.authenticationType, credentials: self.credentials, method: HTTPMethod.GET, fields: "Name")
         let (data, _) = try await endpoint.makeRequest()
         let json = try JSONSerialization.jsonObject(with: data) as? [String : Any]
         if keysExist(dict: json!, keysToCheck: ["page", "total", "pages", "count", "per_page", "items"]) {

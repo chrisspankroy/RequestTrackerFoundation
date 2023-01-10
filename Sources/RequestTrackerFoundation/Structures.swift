@@ -14,6 +14,9 @@ public struct RTObject : Codable, Hashable {
     public var id : String
     public var _url : URL
     public var type : String
+    
+    // Only used in queue refs. nil otherwise
+    public var Name : String?
 }
 
 /**
