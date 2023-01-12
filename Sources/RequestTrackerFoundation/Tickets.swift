@@ -197,6 +197,7 @@ extension RequestTrackerFoundation {
             let json = try JSONSerialization.jsonObject(with: data)
             var ticket = try JSONDecoder().decode(Ticket.self, from: JSONSerialization.data(withJSONObject: json))
             ticket.etag = response.value(forHTTPHeaderField: "ETag")?.replacingOccurrences(of: "\"", with: "")
+            ticket.localizeTicketDates()
             return ticket
         }
         else {
@@ -218,6 +219,7 @@ extension RequestTrackerFoundation {
             let json = try JSONSerialization.jsonObject(with: data)
             var ticket = try JSONDecoder().decode(Ticket.self, from: JSONSerialization.data(withJSONObject: json))
             ticket.etag = response.value(forHTTPHeaderField: "ETag")?.replacingOccurrences(of: "\"", with: "")
+            ticket.localizeTicketDates()
             return ticket
         }
         else {
