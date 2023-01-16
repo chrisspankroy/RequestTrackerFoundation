@@ -213,3 +213,35 @@ public struct Ticket : Codable, Identifiable, Hashable {
         }
     }
 }
+
+public struct RTTransaction : Codable {
+    public var id : String
+    public var Creator : RTObject
+    public var Created : String
+    public var Data : String?
+    public var _hyperlinks : [Hyperlink]
+    public var ItemType : String
+    public var _url : URL
+    public var type : String
+    public var attachments : [Attachment]? = []
+    
+    // Workaround to get Type to work
+    private enum CodingKeys : String, CodingKey {
+        case id, Creator, Created, Data, _hyperlinks, ItemType = "Type", _url, type, attachments
+    }
+}
+
+public struct Attachment : Codable {
+    public var id : Int
+    public var Content : String
+    public var Creator : RTObject
+    public var type : String
+    public var Created : String
+    public var ContentType : String
+    public var _hyperlinks : [Hyperlink]
+    public var MessageId : String
+    public var Headers : String
+    public var Subject : String
+    public var _url : URL
+    public var TransactionId : String
+}

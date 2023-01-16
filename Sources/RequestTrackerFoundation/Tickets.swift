@@ -191,18 +191,7 @@ extension RequestTrackerFoundation {
         if ticketRef.type != "ticket" {
             throw TicketError.InvalidTicketRef
         }
-        var endpoint = Endpoint(urlSession: self.urlSession!, url: ticketRef._url, authenticationType: self.authenticationType, credentials: self.credentials, method: .GET)
-        let (data, response) = try await endpoint.makeRequest()
-        if response.statusCode == 200 {
-            let json = try JSONSerialization.jsonObject(with: data)
-            var ticket = try JSONDecoder().decode(Ticket.self, from: JSONSerialization.data(withJSONObject: json))
-            ticket.etag = response.value(forHTTPHeaderField: "ETag")?.replacingOccurrences(of: "\"", with: "")
-            ticket.localizeTicketDates()
-            return ticket
-        }
-        else {
-            throw TicketError.FailedToDecodeServerResponse
-        }
+        return try await getTicketInfo(id: Int(ticketRef.id)!)
     }
     
     /**
@@ -227,6 +216,32 @@ extension RequestTrackerFoundation {
         }
     }
     
+    public func getTicketHistory(id: Int) async throws -> [RTTransaction] {
+        let endpoint = Endpoint(urlSession: self.urlSession!, host: self.rtServerHost, path: "/ticket/\(id)/history", authenticationType: self.authenticationType, credentials: self.credentials, method: .GET, fields: "Created,_hyperlinks,Creator,Data,Type")
+        let (data, response) = try await endpoint.makeRequest()
+        if response.statusCode == 200 {
+            let json = try JSONSerialization.jsonObject(with: data) as? [String : Any]
+            let mergedPaginatedData = try await fetchAndMergePaginatedData(firstPage: json!, urlSession: self.urlSession!, host: self.rtServerHost, authenticationType: self.authenticationType, credentials: self.credentials)
+            var returnArr : [RTTransaction] = []
+            for entry in mergedPaginatedData {
+                var castedEntry = try JSONDecoder().decode(RTTransaction.self, from: JSONSerialization.data(withJSONObject: entry))
+                castedEntry.attachments = []
+                returnArr.append(castedEntry)
+            }
+            return returnArr
+        }
+        else {
+            throw TicketError.FailedToDecodeServerResponse
+        }
+    }
+    
+    public func getTicketHistory(ref: RTObject) async throws -> [RTTransaction] {
+        if ref.type == "ticket" {
+            return try await getTicketHistory(id: Int(ref.id)!)
+        }
+        throw TicketError.InvalidTicketRef
+    }
+    
     public func search(query: String, fields: String? = nil) async throws -> Array<[String:Any]> {
         if self.urlSession == nil {
             throw RequestTrackerFoundationError.RequestTrackerFoundationNotInitialized
@@ -246,6 +261,25 @@ extension RequestTrackerFoundation {
         }
         else {
             print("Error code: \(response.statusCode)")
+            throw TicketError.FailedToDecodeServerResponse
+        }
+    }
+    
+    // This endpoint is undocumented :(
+    public func getTicketAttachments(ticket : Ticket) async throws -> [Attachment] {
+        let endpoint = Endpoint(urlSession: self.urlSession!, host: self.rtServerHost, path: "/ticket/\(ticket.id)/attachments", authenticationType: self.authenticationType, credentials: self.credentials, method: .GET, fields: "Headers,Creator,Created,id,_hyperlinks,MessageId,Subject,TransactionId,Content,ContentType")
+        let (data, response) = try await endpoint.makeRequest()
+        if response.statusCode == 200 {
+            let json = try JSONSerialization.jsonObject(with: data) as? [String : Any]
+            let mergedPaginatedData = try await fetchAndMergePaginatedData(firstPage: json!, urlSession: self.urlSession!, host: self.rtServerHost, authenticationType: self.authenticationType, credentials: self.credentials)
+            var returnArr : [Attachment] = []
+            for entry in mergedPaginatedData {
+                let castedEntry = try JSONDecoder().decode(Attachment.self, from: JSONSerialization.data(withJSONObject: entry))
+                returnArr.append(castedEntry)
+            }
+            return returnArr
+        }
+        else {
             throw TicketError.FailedToDecodeServerResponse
         }
     }
