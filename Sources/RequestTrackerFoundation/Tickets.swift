@@ -217,15 +217,25 @@ extension RequestTrackerFoundation {
     }
     
     public func getTicketHistory(id: Int) async throws -> [RTTransaction] {
-        let endpoint = Endpoint(urlSession: self.urlSession!, host: self.rtServerHost, path: "/ticket/\(id)/history", authenticationType: self.authenticationType, credentials: self.credentials, method: .GET, fields: "Created,_hyperlinks,Creator,Data,Type")
+        let endpoint = Endpoint(urlSession: self.urlSession!, host: self.rtServerHost, path: "/ticket/\(id)/history", authenticationType: self.authenticationType, credentials: self.credentials, method: .GET, fields: "Created,_hyperlinks,Creator,Data,Type,NewValue,Field")
         let (data, response) = try await endpoint.makeRequest()
         if response.statusCode == 200 {
             let json = try JSONSerialization.jsonObject(with: data) as? [String : Any]
             let mergedPaginatedData = try await fetchAndMergePaginatedData(firstPage: json!, urlSession: self.urlSession!, host: self.rtServerHost, authenticationType: self.authenticationType, credentials: self.credentials)
             var returnArr : [RTTransaction] = []
+            let users = try await getUsers()
             for entry in mergedPaginatedData {
                 var castedEntry = try JSONDecoder().decode(RTTransaction.self, from: JSONSerialization.data(withJSONObject: entry))
                 castedEntry.attachments = []
+                castedEntry.localizeDates()
+                for user in users {
+                    if "\(user.Name)" == castedEntry.Creator.id {
+                        castedEntry.CreatorInjected = "\(user.Name) (\(user.RealName))"
+                        if castedEntry.ItemType == "AddWatcher" {
+                            castedEntry.NewValueInjected = "\(user.Name) (\(user.RealName))"
+                        }
+                    }
+                }
                 returnArr.append(castedEntry)
             }
             return returnArr

@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import SwiftUI
 
 /**
  A struct that represents a generic RT Object
@@ -217,17 +218,96 @@ public struct Ticket : Codable, Identifiable, Hashable {
 public struct RTTransaction : Codable {
     public var id : String
     public var Creator : RTObject
+    // This is injected after fetching
+    public var CreatorInjected : String?
     public var Created : String
     public var Data : String?
     public var _hyperlinks : [Hyperlink]
     public var ItemType : String
     public var _url : URL
     public var type : String
+    public var NewValue : String
+    public var Field : String
+    // This is injected after fetching, includes the actual user name and info
+    public var NewValueInjected : String?
     public var attachments : [Attachment]? = []
     
     // Workaround to get Type to work
     private enum CodingKeys : String, CodingKey {
-        case id, Creator, Created, Data, _hyperlinks, ItemType = "Type", _url, type, attachments
+        case id, Creator, CreatorInjected, Created, Data, _hyperlinks, ItemType = "Type", _url, type, NewValue, Field, NewValueInjected, attachments
+    }
+    
+    public var representingView : some View {
+        VStack {
+            Text(Created)
+                Text("Actor: \(CreatorInjected!)")
+                // From https://github.com/bestpractical/rt/blob/stable/lib/RT/Transaction.pm
+                switch ItemType {
+                case "Create": Text("Ticket was created")
+                case "Enabled": Text("Ticket was enabled")
+                case "Disabled": Text("Ticket was disabled")
+                case "Status": Text("Status changed from X to Y")
+                case "SystemError": Text("A system error occurred.")
+                case "AttachmentTruncate": Text("The attachment was truncated because it exceeded the maximum configured size")
+                case "AttachmentDrop": Text("The attachment was dropped because it exceeded the maximum configured size")
+                case "AttachmentError": Text("There was an error while adding the attachment. Contact RT administrator")
+                case "Forward Transaction": Text("Forwarded transaction")
+                case "Forward Ticket": Text("Forwarded ticket")
+                case "CommentEmailRecord": Text("Sent email about a comment")
+                case "EmailRecord": Text("Sent email")
+                case "Correspond": Text("Correspondence added")
+                case "Comment": Text("Comments added")
+                case "CustomField": Text("Something with a custom field")
+                case "Untake": Text("Untaken")
+                case "Take": Text("Taken")
+                case "Force": Text("Owner forcibly changed")
+                case "Steal": Text("Stolen")
+                case "Give": Text("Given")
+                case "AddWatcher": Text("\(Field) \(NewValueInjected!) added")
+                case "DelWatcher": Text("Deleted")
+                case "SetWatcher": Text("Set")
+                case "Subject": Text("Subject changed")
+                case "AddLink": Text("Link added")
+                case "DeleteLink": Text("Link deleted")
+                case "Told": Text("told changed")
+                case "Set": Text("Set")
+                case "Set-TimeWorked": Text("Worked")
+                case "PurgeTransaction": Text("Purged")
+                case "AddReminder": Text("Reminder added")
+                case "OpenReminder": Text("Reminder reopened")
+                case "ResolveReminder": Text("Reminder resolved")
+                case "RT::Asset-Set-Catalog": Text("Changed")
+                case "AddMember": Text("Added user/group")
+                case "DeleteMember": Text("Removed user/group")
+                case "AddMembership": Text("Added to group")
+                case "DeleteMembership": Text("Removed from group")
+                case "Munge": Text("Attachment content modified")
+                case "SetConfig": Text("Config changed")
+                case "DeleteConfig": Text("Config deleted")
+                default: Text("Unknown Transaction type. Please report this bug")
+                }
+            }
+    }
+    
+    public mutating func localizeDates() {
+        var localTimeZoneAbbreviation: String { return TimeZone.current.abbreviation() ?? "" }
+        let localTimeZoneSeconds = TimeZone(secondsFromGMT: TimeZone.current.secondsFromGMT())
+        let originalFormat = "yyyy-MM-dd'T'HH:mm:ssZ"
+        let newFormat = "E MMM dd HH:mm:ss yyyy '\(localTimeZoneAbbreviation)'"
+        let dateFormatter = DateFormatter()
+        dateFormatter.locale = Locale(identifier: "en_US_POSIX")
+        dateFormatter.timeZone = localTimeZoneSeconds
+        
+        if Created != "1970-01-01T00:00:00Z" {
+            dateFormatter.dateFormat = originalFormat
+            let date = dateFormatter.date(from: Created)
+            dateFormatter.dateFormat = newFormat
+            let resultString = dateFormatter.string(from: date!)
+            Created = resultString
+        }
+        else {
+            Created = "Not set"
+        }
     }
 }
 
@@ -244,4 +324,12 @@ public struct Attachment : Codable {
     public var Subject : String
     public var _url : URL
     public var TransactionId : String
+}
+
+public struct User : Codable {
+    public var Name : String
+    public var id : Int
+    public var RealName : String
+    public var _url : URL
+    public var type : String
 }
