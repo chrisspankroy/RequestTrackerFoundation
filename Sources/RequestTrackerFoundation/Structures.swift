@@ -7,6 +7,7 @@
 
 import Foundation
 import SwiftUI
+import WebKit
 
 /**
  A struct that represents a generic RT Object
@@ -215,6 +216,20 @@ public struct Ticket : Codable, Identifiable, Hashable {
     }
 }
 
+struct HTMLView: UIViewRepresentable {
+    var text: String
+   
+    func makeUIView(context: Context) -> WKWebView {
+        return WKWebView()
+    }
+   
+    func updateUIView(_ uiView: WKWebView, context: Context) {
+        let header = "<html><meta name=\"viewport\" content=\"initial-scale=1.0\" /><head><style>:root{font: -apple-system-body;color-scheme: light dark;}</style></head><body>"
+        let footer = "</body></html>"
+        uiView.loadHTMLString(header + text + footer, baseURL: nil)
+    }
+}
+
 public struct RTTransaction : Codable {
     public var id : String
     public var Creator : RTObject
@@ -240,9 +255,11 @@ public struct RTTransaction : Codable {
     public var representingView : some View {
         VStack {
             Text(Created)
-                Text("Actor: \(CreatorInjected!)")
-                // From https://github.com/bestpractical/rt/blob/stable/lib/RT/Transaction.pm
-                switch ItemType {
+            /*HTMLView(text: "<h1>Hello world lorum ipsum lorem ipsum hello worldHello world lorum ipsum lorem ipsum hello worldHello world lorum ipsum lorem ipsum hello worldHello world lorum ipsum lorem ipsum hello worldHello world lorum ipsum lorem ipsum hello worldHello world lorum ipsum lorem ipsum hello worldHello world lorum ipsum lorem ipsum hello worldHello world lorum ipsum lorem ipsum hello worldHello world lorum ipsum lorem ipsum hello worldHello world lorum ipsum lorem ipsum hello worldHello world lorum ipsum lorem ipsum hello worldHello world lorum ipsum lorem ipsum hello worldHello world lorum ipsum lorem ipsum hello worldHello world lorum ipsum lorem ipsum hello worldHello world lorum ipsum lorem ipsum hello world</h1>")
+                .frame(minWidth: 100, maxWidth: .infinity, minHeight: 100, maxHeight: 100)*/
+            Text("Actor: \(CreatorInjected!)")
+            // From https://github.com/bestpractical/rt/blob/stable/lib/RT/Transaction.pm
+            switch ItemType {
                 case "Create": Text("Ticket was created")
                 case "Enabled": Text("Ticket was enabled")
                 case "Disabled": Text("Ticket was disabled")
@@ -285,7 +302,16 @@ public struct RTTransaction : Codable {
                 case "SetConfig": Text("Config changed")
                 case "DeleteConfig": Text("Config deleted")
                 default: Text("Unknown Transaction type. Please report this bug")
+            }
+            ForEach(attachments!, id: \.id) { attachment in
+                if attachment.ContentType == "text/html" || attachment.ContentType == "text/plain" {
+                    HTMLView(text: attachment.Content)
+                        .frame(minWidth: 100, maxWidth: .infinity, minHeight: 100, maxHeight: 100)
                 }
+                else {
+                    Text("Attachment detected")
+                }
+            }
             }
     }
     
