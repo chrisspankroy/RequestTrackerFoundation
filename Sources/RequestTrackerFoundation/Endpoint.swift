@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import FoundationNetworking
 
 /**
  Provides possible errors that can be thrown when making an endpoint request

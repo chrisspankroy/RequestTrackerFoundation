@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import FoundationNetworking
 
 /**
  Provides errors that can be thrown by ticket-related functions
@@ -51,7 +52,7 @@ extension RequestTrackerFoundation {
         for hyperlink in queue._hyperlinks {
             if hyperlink.ref == "create" {
                 // This is the hyperlink we should use
-                var jsonData = try JSONSerialization.data(withJSONObject: ticketFields)
+                let jsonData = try JSONSerialization.data(withJSONObject: ticketFields)
                 let endpoint = Endpoint(urlSession: self.urlSession!, url: hyperlink._url, authenticationType: self.authenticationType, credentials: self.credentials, method: .POST, bodyData: jsonData, bodyContentType: "application/json")
                 let (data, response) = try await endpoint.makeRequest()
                 if response.statusCode == 201 {
@@ -84,7 +85,7 @@ extension RequestTrackerFoundation {
         for hyperlink in ticket._hyperlinks {
             if hyperlink.ref == "self" {
                 // This is the hyperlink we should use
-                var jsonData = try JSONSerialization.data(withJSONObject: ticketFields)
+                let jsonData = try JSONSerialization.data(withJSONObject: ticketFields)
                 let endpoint = Endpoint(urlSession: self.urlSession!, url: hyperlink._url, authenticationType: self.authenticationType, credentials: self.credentials, method: .PUT, bodyData: jsonData, bodyContentType: "application/json", etag: ticket.etag)
                 let (data, response) = try await endpoint.makeRequest()
                 if response.statusCode == 412 {
@@ -94,7 +95,7 @@ extension RequestTrackerFoundation {
                 else if response.statusCode == 200 {
                     do {
                         let json = try JSONSerialization.jsonObject(with: data)
-                        var answerArr = try JSONDecoder().decode([String].self, from: JSONSerialization.data(withJSONObject: json))
+                        let answerArr = try JSONDecoder().decode([String].self, from: JSONSerialization.data(withJSONObject: json))
                         return answerArr
                     }
                     catch {
@@ -120,7 +121,7 @@ extension RequestTrackerFoundation {
     public func replyToTicket(ticket: Ticket, ticketFields: [String:Any]) async throws -> [String] {
         for hyperlink in ticket._hyperlinks {
             if hyperlink.ref == "correspond" {
-                var jsonData = try JSONSerialization.data(withJSONObject: ticketFields)
+                let jsonData = try JSONSerialization.data(withJSONObject: ticketFields)
                 let endpoint = Endpoint(urlSession: self.urlSession!, url: hyperlink._url, authenticationType: self.authenticationType, credentials: self.credentials, method: .POST, bodyData: jsonData, bodyContentType: "application/json", etag: ticket.etag)
                 let (data, response) = try await endpoint.makeRequest()
                 if response.statusCode == 412 {
@@ -130,7 +131,7 @@ extension RequestTrackerFoundation {
                 else if response.statusCode == 201 {
                     do {
                         let json = try JSONSerialization.jsonObject(with: data)
-                        var answerArr = try JSONDecoder().decode([String].self, from: JSONSerialization.data(withJSONObject: json))
+                        let answerArr = try JSONDecoder().decode([String].self, from: JSONSerialization.data(withJSONObject: json))
                         return answerArr
                     }
                     catch {
@@ -155,7 +156,7 @@ extension RequestTrackerFoundation {
     public func commentTicket(ticket: Ticket, ticketFields: [String:Any]) async throws -> [String] {
         for hyperlink in ticket._hyperlinks {
             if hyperlink.ref == "comment" {
-                var jsonData = try JSONSerialization.data(withJSONObject: ticketFields)
+                let jsonData = try JSONSerialization.data(withJSONObject: ticketFields)
                 let endpoint = Endpoint(urlSession: self.urlSession!, url: hyperlink._url, authenticationType: self.authenticationType, credentials: self.credentials, method: .POST, bodyData: jsonData, bodyContentType: "application/json", etag: ticket.etag)
                 let (data, response) = try await endpoint.makeRequest()
                 if response.statusCode == 412 {
@@ -165,7 +166,7 @@ extension RequestTrackerFoundation {
                 else if response.statusCode == 201 {
                     do {
                         let json = try JSONSerialization.jsonObject(with: data)
-                        var answerArr = try JSONDecoder().decode([String].self, from: JSONSerialization.data(withJSONObject: json))
+                        let answerArr = try JSONDecoder().decode([String].self, from: JSONSerialization.data(withJSONObject: json))
                         return answerArr
                     }
                     catch {

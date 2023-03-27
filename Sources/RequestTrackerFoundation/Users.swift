@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import FoundationNetworking
 
 enum UserError : Error {
     case FailedToDecodeServerResponse
@@ -32,7 +33,7 @@ extension RequestTrackerFoundation {
             let mergedPaginatedData = try await fetchAndMergePaginatedData(firstPage: json!, urlSession: self.urlSession!, host: self.rtServerHost, authenticationType: self.authenticationType, credentials: self.credentials)
             var returnArr : [User] = []
             for entry in mergedPaginatedData {
-                var castedEntry = try JSONDecoder().decode(User.self, from: JSONSerialization.data(withJSONObject: entry))
+                let castedEntry = try JSONDecoder().decode(User.self, from: JSONSerialization.data(withJSONObject: entry))
                 // need to implement
                 //castedEntry.localizeDates()
                 returnArr.append(castedEntry)

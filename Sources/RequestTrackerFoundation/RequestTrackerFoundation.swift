@@ -1,4 +1,5 @@
 import Foundation
+import FoundationNetworking
 
 /**
  Provides core errors that can be thrown by RequestTrackerFoundation

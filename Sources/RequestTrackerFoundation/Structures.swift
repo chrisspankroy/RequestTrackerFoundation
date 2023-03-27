@@ -6,8 +6,9 @@
 //
 
 import Foundation
-import SwiftUI
-import WebKit
+import FoundationNetworking
+//import SwiftUI
+//import WebKit
 
 /**
  A struct that represents a generic RT Object
@@ -216,20 +217,6 @@ public struct Ticket : Codable, Identifiable, Hashable {
     }
 }
 
-struct HTMLView: UIViewRepresentable {
-    var text: String
-   
-    func makeUIView(context: Context) -> WKWebView {
-        return WKWebView()
-    }
-   
-    func updateUIView(_ uiView: WKWebView, context: Context) {
-        let header = "<html><meta name=\"viewport\" content=\"initial-scale=1.0\" /><head><style>:root{font: -apple-system-body;color-scheme: light dark;}</style></head><body>"
-        let footer = "</body></html>"
-        uiView.loadHTMLString(header + text + footer, baseURL: nil)
-    }
-}
-
 public struct RTTransaction : Codable {
     public var id : String
     public var Creator : RTObject
@@ -250,69 +237,6 @@ public struct RTTransaction : Codable {
     // Workaround to get Type to work
     private enum CodingKeys : String, CodingKey {
         case id, Creator, CreatorInjected, Created, Data, _hyperlinks, ItemType = "Type", _url, type, NewValue, Field, NewValueInjected, attachments
-    }
-    
-    public var representingView : some View {
-        VStack {
-            Text(Created)
-            /*HTMLView(text: "<h1>Hello world lorum ipsum lorem ipsum hello worldHello world lorum ipsum lorem ipsum hello worldHello world lorum ipsum lorem ipsum hello worldHello world lorum ipsum lorem ipsum hello worldHello world lorum ipsum lorem ipsum hello worldHello world lorum ipsum lorem ipsum hello worldHello world lorum ipsum lorem ipsum hello worldHello world lorum ipsum lorem ipsum hello worldHello world lorum ipsum lorem ipsum hello worldHello world lorum ipsum lorem ipsum hello worldHello world lorum ipsum lorem ipsum hello worldHello world lorum ipsum lorem ipsum hello worldHello world lorum ipsum lorem ipsum hello worldHello world lorum ipsum lorem ipsum hello worldHello world lorum ipsum lorem ipsum hello world</h1>")
-                .frame(minWidth: 100, maxWidth: .infinity, minHeight: 100, maxHeight: 100)*/
-            Text("Actor: \(CreatorInjected!)")
-            // From https://github.com/bestpractical/rt/blob/stable/lib/RT/Transaction.pm
-            switch ItemType {
-                case "Create": Text("Ticket was created")
-                case "Enabled": Text("Ticket was enabled")
-                case "Disabled": Text("Ticket was disabled")
-                case "Status": Text("Status changed from X to Y")
-                case "SystemError": Text("A system error occurred.")
-                case "AttachmentTruncate": Text("The attachment was truncated because it exceeded the maximum configured size")
-                case "AttachmentDrop": Text("The attachment was dropped because it exceeded the maximum configured size")
-                case "AttachmentError": Text("There was an error while adding the attachment. Contact RT administrator")
-                case "Forward Transaction": Text("Forwarded transaction")
-                case "Forward Ticket": Text("Forwarded ticket")
-                case "CommentEmailRecord": Text("Sent email about a comment")
-                case "EmailRecord": Text("Sent email")
-                case "Correspond": Text("Correspondence added")
-                case "Comment": Text("Comments added")
-                case "CustomField": Text("Something with a custom field")
-                case "Untake": Text("Untaken")
-                case "Take": Text("Taken")
-                case "Force": Text("Owner forcibly changed")
-                case "Steal": Text("Stolen")
-                case "Give": Text("Given")
-                case "AddWatcher": Text("\(Field) \(NewValueInjected!) added")
-                case "DelWatcher": Text("Deleted")
-                case "SetWatcher": Text("Set")
-                case "Subject": Text("Subject changed")
-                case "AddLink": Text("Link added")
-                case "DeleteLink": Text("Link deleted")
-                case "Told": Text("told changed")
-                case "Set": Text("Set")
-                case "Set-TimeWorked": Text("Worked")
-                case "PurgeTransaction": Text("Purged")
-                case "AddReminder": Text("Reminder added")
-                case "OpenReminder": Text("Reminder reopened")
-                case "ResolveReminder": Text("Reminder resolved")
-                case "RT::Asset-Set-Catalog": Text("Changed")
-                case "AddMember": Text("Added user/group")
-                case "DeleteMember": Text("Removed user/group")
-                case "AddMembership": Text("Added to group")
-                case "DeleteMembership": Text("Removed from group")
-                case "Munge": Text("Attachment content modified")
-                case "SetConfig": Text("Config changed")
-                case "DeleteConfig": Text("Config deleted")
-                default: Text("Unknown Transaction type. Please report this bug")
-            }
-            ForEach(attachments!, id: \.id) { attachment in
-                if attachment.ContentType == "text/html" || attachment.ContentType == "text/plain" {
-                    HTMLView(text: attachment.Content)
-                        .frame(minWidth: 100, maxWidth: .infinity, minHeight: 100, maxHeight: 100)
-                }
-                else {
-                    Text("Attachment detected")
-                }
-            }
-            }
     }
     
     public mutating func localizeDates() {
