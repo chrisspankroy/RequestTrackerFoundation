@@ -55,7 +55,7 @@ extension RequestTrackerFoundation {
                 let jsonData = try JSONSerialization.data(withJSONObject: ticketFields)
                 let endpoint = Endpoint(httpClient: self.httpClient!, url: hyperlink._url, authenticationType: self.authenticationType, credentials: self.credentials, method: .POST, bodyData: jsonData, bodyContentType: "application/json")
                 let response = try await endpoint.makeRequest()
-                let data = Data(buffer: response.body)
+                let data = try await response.body.collect(upTo: 1024 * 1024 * 100) // 100MB
                 if response.status.code == 201 {
                     do {
                         let json = try JSONSerialization.jsonObject(with: data)
@@ -78,18 +78,18 @@ extension RequestTrackerFoundation {
     /**
      Updates an existing ticket
      - Parameters:
-        - ticket: The `Ticket` to update
+        - ticket: The `Ticket` to update. The 'inout' keyword passes parameter by reference instead of by value so we can update the etag from here
         - ticketFields: A dictionary of fields to update
      - Returns: An `Array` of `String`s describing the updates that were made
      */
-    public func updateTicket(ticket: Ticket, ticketFields: [String:Any]) async throws -> [String] {
+    public func updateTicket(ticket: inout Ticket, ticketFields: [String:Any]) async throws -> [String] {
         for hyperlink in ticket._hyperlinks {
             if hyperlink.ref == "self" {
                 // This is the hyperlink we should use
                 let jsonData = try JSONSerialization.data(withJSONObject: ticketFields)
                 let endpoint = Endpoint(httpClient: self.httpClient!, url: hyperlink._url, authenticationType: self.authenticationType, credentials: self.credentials, method: .PUT, bodyData: jsonData, bodyContentType: "application/json", etag: ticket.etag)
                 let response = try await endpoint.makeRequest()
-                let data = Data(buffer: response.body)
+                let data = try await response.body.collect(upTo: 1024 * 1024 * 100) // 100MB
                 if response.status.code == 412 {
                     // Invalid ETag
                     throw TicketError.PreconditionFailed
@@ -98,6 +98,11 @@ extension RequestTrackerFoundation {
                     do {
                         let json = try JSONSerialization.jsonObject(with: data)
                         let answerArr = try JSONDecoder().decode([String].self, from: JSONSerialization.data(withJSONObject: json))
+                        
+                        // Update etag before returning
+                        let newEtag = try await self.getTicketInfo(id: ticket.id).etag
+                        ticket.etag = newEtag
+
                         return answerArr
                     }
                     catch {
@@ -126,7 +131,7 @@ extension RequestTrackerFoundation {
                 let jsonData = try JSONSerialization.data(withJSONObject: ticketFields)
                 let endpoint = Endpoint(httpClient: self.httpClient!, url: hyperlink._url, authenticationType: self.authenticationType, credentials: self.credentials, method: .POST, bodyData: jsonData, bodyContentType: "application/json", etag: ticket.etag)
                 let response = try await endpoint.makeRequest()
-                let data = Data(buffer: response.body)
+                let data = try await response.body.collect(upTo: 1024 * 1024 * 100) // 100MB
                 if response.status.code == 412 {
                     // Invalid ETag
                     throw TicketError.PreconditionFailed
@@ -162,7 +167,7 @@ extension RequestTrackerFoundation {
                 let jsonData = try JSONSerialization.data(withJSONObject: ticketFields)
                 let endpoint = Endpoint(httpClient: self.httpClient!, url: hyperlink._url, authenticationType: self.authenticationType, credentials: self.credentials, method: .POST, bodyData: jsonData, bodyContentType: "application/json", etag: ticket.etag)
                 let response = try await endpoint.makeRequest()
-                let data = Data(buffer: response.body)
+                let data = try await response.body.collect(upTo: 1024 * 1024 * 100) // 100MB
                 if response.status.code == 412 {
                     // Invalid ETag
                     throw TicketError.PreconditionFailed
@@ -209,7 +214,7 @@ extension RequestTrackerFoundation {
     public func getTicketInfo(id: Int) async throws -> Ticket {
         let endpoint = Endpoint(httpClient: self.httpClient!, host: self.rtServerHost, path: "/ticket/\(id)", authenticationType: self.authenticationType, credentials: self.credentials, method: .GET)
         let response = try await endpoint.makeRequest()
-        let data = Data(buffer: response.body)
+        let data = try await response.body.collect(upTo: 1024 * 1024 * 100) // 100MB
         if response.status.code == 200 {
             let json = try JSONSerialization.jsonObject(with: data)
             var ticket = try JSONDecoder().decode(Ticket.self, from: JSONSerialization.data(withJSONObject: json))
@@ -229,24 +234,15 @@ extension RequestTrackerFoundation {
     public func getTicketHistory(id: Int) async throws -> [RTTransaction] {
         let endpoint = Endpoint(httpClient: self.httpClient!, host: self.rtServerHost, path: "/ticket/\(id)/history", authenticationType: self.authenticationType, credentials: self.credentials, method: .GET, fields: "Created,_hyperlinks,Creator,Data,Type,NewValue,Field")
         let response = try await endpoint.makeRequest()
-        let data = Data(buffer: response.body)
+        let data = try await response.body.collect(upTo: 1024 * 1024 * 100) // 100MB
         if response.status.code == 200 {
             let json = try JSONSerialization.jsonObject(with: data) as? [String : Any]
             let mergedPaginatedData = try await fetchAndMergePaginatedData(firstPage: json!, httpClient: self.httpClient!, host: self.rtServerHost, authenticationType: self.authenticationType, credentials: self.credentials)
             var returnArr : [RTTransaction] = []
-            let users = try await getUsers()
             for entry in mergedPaginatedData {
                 var castedEntry = try JSONDecoder().decode(RTTransaction.self, from: JSONSerialization.data(withJSONObject: entry))
                 castedEntry.attachments = []
                 castedEntry.localizeDates()
-                for user in users {
-                    if "\(user.Name)" == castedEntry.Creator.id {
-                        castedEntry.CreatorInjected = "\(user.Name) (\(user.RealName))"
-                        if castedEntry.ItemType == "AddWatcher" {
-                            castedEntry.NewValueInjected = "\(user.Name) (\(user.RealName))"
-                        }
-                    }
-                }
                 returnArr.append(castedEntry)
             }
             return returnArr
@@ -263,7 +259,7 @@ extension RequestTrackerFoundation {
         throw TicketError.InvalidTicketRef
     }
     
-    public func search(query: String, fields: String? = nil) async throws -> Array<[String:Any]> {
+    public func search(query: String, fields: String? = nil) async throws -> [RTObject] {
         if self.httpClient == nil {
             throw RequestTrackerFoundationError.RequestTrackerFoundationNotInitialized
         }
@@ -273,16 +269,21 @@ extension RequestTrackerFoundation {
         }
         let endpoint = Endpoint(httpClient: self.httpClient!, host: self.rtServerHost, path: "/tickets", authenticationType: self.authenticationType, credentials: self.credentials, method: .GET, query: query, fields: fields)
         let response = try await endpoint.makeRequest()
-        let data = Data(buffer: response.body)
+        let data = try await response.body.collect(upTo: 1024 * 1024 * 100) // 100MB
         if response.status.code == 200 {
             let json = try JSONSerialization.jsonObject(with: data) as? [String:Any]
             if json == nil {
                 throw TicketError.FailedToDecodeServerResponse
             }
-            return try await fetchAndMergePaginatedData(firstPage: json!, httpClient: self.httpClient!, host: self.rtServerHost, authenticationType: self.authenticationType, credentials: self.credentials)
+            let rawRefs = try await fetchAndMergePaginatedData(firstPage: json!, httpClient: self.httpClient!, host: self.rtServerHost, authenticationType: self.authenticationType, credentials: self.credentials)
+            var returnArr : [RTObject] = []
+            for rawRef in rawRefs {
+                returnArr.append(try RTObject(dictionary: rawRef))
+            }
+            return returnArr
         }
         else {
-            print("Error code: \(response.status.code)")
+            print("[RTF] Error code: \(response.status.code)")
             throw TicketError.FailedToDecodeServerResponse
         }
     }
@@ -291,7 +292,7 @@ extension RequestTrackerFoundation {
     public func getTicketAttachments(ticket : Ticket) async throws -> [Attachment] {
         let endpoint = Endpoint(httpClient: self.httpClient!, host: self.rtServerHost, path: "/ticket/\(ticket.id)/attachments", authenticationType: self.authenticationType, credentials: self.credentials, method: .GET, fields: "Headers,Creator,Created,id,_hyperlinks,MessageId,Subject,TransactionId,Content,ContentType")
         let response = try await endpoint.makeRequest()
-        let data = Data(buffer: response.body)
+        let data = try await response.body.collect(upTo: 1024 * 1024 * 100) // 100MB
         if response.status.code == 200 {
             let json = try JSONSerialization.jsonObject(with: data) as? [String : Any]
             let mergedPaginatedData = try await fetchAndMergePaginatedData(firstPage: json!, httpClient: self.httpClient!, host: self.rtServerHost, authenticationType: self.authenticationType, credentials: self.credentials)

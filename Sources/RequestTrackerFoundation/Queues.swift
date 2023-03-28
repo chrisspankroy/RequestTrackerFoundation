@@ -44,7 +44,7 @@ extension RequestTrackerFoundation {
         }
         let endpoint = Endpoint(httpClient: self.httpClient!, host: self.rtServerHost, path: "/queues/all", authenticationType: self.authenticationType, credentials: self.credentials, method: .GET, fields: "Name")
         let response = try await endpoint.makeRequest()
-        let data = Data(buffer: response.body)
+        let data = try await response.body.collect(upTo: 1024 * 1024 * 100) // 100MB
         let json = try JSONSerialization.jsonObject(with: data) as? [String : Any]
         if keysExist(dict: json!, keysToCheck: ["page", "total", "pages", "count", "per_page", "items"]) {
             let queues = try await fetchAndMergePaginatedData(firstPage: json!, httpClient: self.httpClient!, host: self.rtServerHost, authenticationType: authenticationType, credentials: credentials)
@@ -86,7 +86,7 @@ extension RequestTrackerFoundation {
         for rtobject in queues {
             let endpoint = Endpoint(httpClient: self.httpClient!, url: rtobject._url, authenticationType: self.authenticationType, credentials: self.credentials, method: .GET)
             let response = try await endpoint.makeRequest()
-            let data = Data(buffer: response.body)
+            let data = try await response.body.collect(upTo: 1024 * 1024 * 100) // 100MB
             let json = try JSONSerialization.jsonObject(with: data)
             let queue = try JSONDecoder().decode(Queue.self, from: JSONSerialization.data(withJSONObject: json))
             detailedQueues.append(queue)
@@ -99,19 +99,22 @@ extension RequestTrackerFoundation {
             throw RequestTrackerFoundationError.RequestTrackerFoundationNotInitialized
         }
         let newResponse = try await search(query: "Queue = '\(queue.Name)' AND Status = '__Active__'", fields: "Status")
-        
+        var tickets: [Ticket] = []
+        for ref in newResponse {
+            try await tickets.append(self.getTicketInfo(ticketRef: ref))
+        }
         var openCount = 0
         var newCount = 0
         var stalledCount = 0
         
-        for ticket in newResponse {
-            if ticket["Status"] as? String == "new" {
+        for ticket in tickets {
+            if ticket.Status == "new" {
                 newCount += 1
             }
-            else if ticket["Status"] as? String == "open" {
+            else if ticket.Status == "open" {
                 openCount += 1
             }
-            else if ticket["Status"] as? String == "stalled" {
+            else if ticket.Status == "stalled" {
                 stalledCount += 1
             }
         }

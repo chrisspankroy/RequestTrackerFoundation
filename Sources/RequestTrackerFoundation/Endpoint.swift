@@ -153,8 +153,8 @@ class Endpoint {
         }
         do {
             if self.debug {
-                print("DEBUG: Printing URLRequest before sending:")
-                print(urlRequest)
+                print("[RTF] DEBUG: Printing URLRequest before sending:")
+                print("[RTF] \(urlRequest)")
             }
             let response = try await httpClient.execute(urlRequest, timeout: .seconds(30))
             return response

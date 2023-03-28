@@ -108,10 +108,10 @@ func fetchAndMergePaginatedData(firstPage: [String : Any], httpClient: HTTPClien
     var next_page_url = URL(string: firstPage["next_page"] as! String)
     
     while next_page_url != nil {
-        let endpoint = Endpoint(httpClient: httpClient, url: next_page_url!, authenticationType: authenticationType, credentials: credentials, method: HTTPMethod.GET)
+        let endpoint = Endpoint(httpClient: httpClient, url: next_page_url!, authenticationType: authenticationType, credentials: credentials, method: .GET)
         let response = try await endpoint.makeRequest()
-        let data = Data(buffer: response.body)
-        if response.statusCode == 200 {
+        let data = try await response.body.collect(upTo: 1024 * 1024 * 100) // 100MB
+        if response.status.code == 200 {
             do {
                 let json = try JSONSerialization.jsonObject(with: data) as? [String : Any]
                 if validatePaginatedResponse(page: json) {

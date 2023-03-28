@@ -20,12 +20,16 @@ public struct RTObject : Codable, Hashable, Identifiable {
     
     // Only used in queue refs. nil otherwise
     public var Name : String?
+
+    init(dictionary: [String:Any]) throws {
+        self = try JSONDecoder().decode(RTObject.self, from: JSONSerialization.data(withJSONObject: dictionary))
+    }
 }
 
 /**
  A struct that represents a RT API hyperlink
  */
-public struct Hyperlink : Codable, Hashable {
+public struct Hyperlink : Codable, Hashable, Identifiable {
     public var id : String?
     public var ref : String
     public var type : String?
@@ -66,6 +70,17 @@ public struct Queue : Codable, Identifiable, Hashable {
 }
 
 /**
+ A struct that represents a custom field
+ */
+public struct CustomField : Codable, Identifiable, Hashable {
+    public var id : String
+    public var type : String
+    public var _url : URL
+    public var values : [String]
+    public var name : String
+}
+
+/**
  A struct that represents a RT ticket
  */
 public struct Ticket : Codable, Identifiable, Hashable {
@@ -74,7 +89,7 @@ public struct Ticket : Codable, Identifiable, Hashable {
     public var Cc : Array<RTObject>
     public var Created : String
     public var Creator : RTObject
-    public var CustomFields : Array<String>
+    public var CustomFields : [CustomField]
     public var Due : String
     // This is equivalent to the ticketRef
     public var EffectiveID : RTObject?
@@ -96,6 +111,15 @@ public struct Ticket : Codable, Identifiable, Hashable {
     public var TimeWorked : String
     public var _hyperlinks : Array<Hyperlink>
     public var id : Int
+
+    public func getCFValue(fieldName: String) -> [String]? {
+        for field in CustomFields {
+            if field.name == fieldName {
+                return field.values
+            }
+        }
+        return nil
+    }
     
     public func getRequestorsString() -> String {
         if Requestor.count == 0 {

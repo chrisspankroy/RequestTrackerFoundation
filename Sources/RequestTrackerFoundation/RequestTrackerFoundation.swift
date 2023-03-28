@@ -52,13 +52,13 @@ public struct RequestTrackerFoundation {
         - credentials: The credentials to use for authentication. Should be applicable to `authenticationType`
      */
     public init(rtServerHost : String, authenticationType : AuthenticationType, credentials : String) async throws {
-        print("Initializing RequestTrackerFoundation...")
+        print("[RTF] Initializing RequestTrackerFoundation...")
         
         self.rtServerHost = rtServerHost
         self.authenticationType = authenticationType
         self.credentials = credentials
         
-        print("Using RT Host \(self.rtServerHost) on port 443")
+        print("[RTF] Using RT Host \(self.rtServerHost) on port 443")
         self.httpClient = HTTPClient(eventLoopGroupProvider: .createNew)
     
         // Validate given URL is a RT server running REST 2 API
@@ -72,14 +72,14 @@ public struct RequestTrackerFoundation {
         
         endpoint = Endpoint(httpClient: self.httpClient!, host: self.rtServerHost, path: "/rt", authenticationType: authenticationType, credentials: credentials, method: .GET)
         response = try await endpoint.makeRequest()
-        var data = response.body
+        let data = try await response.body.collect(upTo: 1024 * 1024 * 100) // 100MB
         switch response.status.code {
         case 200: break
         case 401: throw RequestTrackerFoundationError.InvalidCredentials
         default: throw RequestTrackerFoundationError.ServerIsNotRT
         }
         
-        print("Status code looks OK, verifying actual response...")
+        print("[RTF] Status code looks OK, verifying actual response...")
         
         do {
             let json = try JSONSerialization.jsonObject(with: Data(buffer: data)) as? [String : Any]
@@ -90,15 +90,16 @@ public struct RequestTrackerFoundation {
         catch {
             throw RequestTrackerFoundationError.ServerIsNotRT
         }
-        
-        print("Host \(rtServerHost) verified as RT server running v2 of REST API")
-        print("Request Tracker Foundation initialized")
+        print("[RTF] Host \(rtServerHost) verified as RT server running v2 of REST API")
+        print("[RTF] Request Tracker Foundation initialized")
     }
 
     /**
     Shuts down HTTP Client (disruptive to any pending requests). This must be called.
      */
     public func shutdown() async throws {
+        print("[RTF] Shutting down HTTP client...")
         try await self.httpClient!.shutdown()
+        print("[RTF] HTTP client shutdown successful")
     }
 }
