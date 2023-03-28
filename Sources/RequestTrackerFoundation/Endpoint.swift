@@ -7,6 +7,15 @@
 
 import Foundation
 import FoundationNetworking
+import AsyncHTTPClient
+import Foundation
+import Logging
+import NIO
+import NIOConcurrencyHelpers
+import NIOFoundationCompat
+import NIOHTTP1
+import NIOHTTPCompression
+import NIOSSL
 
 /**
  Provides possible errors that can be thrown when making an endpoint request
@@ -36,17 +45,10 @@ public enum AuthenticationType : String {
 }
 
 /**
- Provides available HTTP methods
- */
-public enum HTTPMethod : String {
-    case GET, POST, PUT
-}
-
-/**
  A class that represents an API endpoint
  */
 class Endpoint {
-    var urlSession : URLSession
+    var httpClient : HTTPClient
     var url : URLComponents
     var authenticationType : AuthenticationType
     var credentials : String
@@ -60,7 +62,7 @@ class Endpoint {
      Instantiates a new `Endpoint`.
      
      - Parameters:
-        - urlSession: The `URLSession` that should be used for making the request
+        - httpClient: The `HTTPClient` that should be used for making the request
         - host: The hostname of the RT server (for example: rt.example.com)
         - path: The URL path to send the request to. `"/REST/2.0"` is prepended to this
         - authenticationType: The `AuthenticationType` to use for authentication
@@ -70,11 +72,10 @@ class Endpoint {
         - bodyContentType: The `Content-Type` header to send with the request. Defaults to `nil`
         - etag: The value of the `If-Match` header to provide. Default to `nil`
      */
-    init(urlSession : URLSession, host : String, path : String, authenticationType: AuthenticationType, credentials : String, method : HTTPMethod, bodyData: Data? = nil, bodyContentType: String? = nil, etag: String? = nil, query: String? = nil, fields: String? = nil, subfields: [String:String]? = nil, debug: Bool = false) {
-        self.urlSession = urlSession
+    init(httpClient : HTTPClient, host : String, path : String, authenticationType: AuthenticationType, credentials : String, method : HTTPMethod, bodyData: Data? = nil, bodyContentType: String? = nil, etag: String? = nil, query: String? = nil, fields: String? = nil, subfields: [String:String]? = nil, debug: Bool = false) {
+        self.httpClient = httpClient
         var components = URLComponents()
-        // This should be https
-        components.scheme = "http"
+        components.scheme = "https"
         components.host = host
         components.path = "/REST/2.0" + path
         components.queryItems = [
@@ -109,8 +110,8 @@ class Endpoint {
         - bodyContentType: The `Content-Type` header to send with the request. Defaults to `nil`
         - etag: The value of the `If-Match` header to provide. Default to `nil`
      */
-    init(urlSession : URLSession, url : URL, authenticationType: AuthenticationType, credentials : String, method: HTTPMethod, bodyData: Data? = nil, bodyContentType: String? = nil, etag: String? = nil, debug: Bool = false) {
-        self.urlSession = urlSession
+    init(httpClient : HTTPClient, url : URL, authenticationType: AuthenticationType, credentials : String, method: HTTPMethod, bodyData: Data? = nil, bodyContentType: String? = nil, etag: String? = nil, debug: Bool = false) {
+        self.httpClient = httpClient
         self.url = URLComponents(url: url, resolvingAgainstBaseURL: false)!
         self.authenticationType = authenticationType
         self.credentials = credentials
@@ -124,38 +125,39 @@ class Endpoint {
     /**
      Perform the API request
      */
-    func makeRequest() async throws -> (Data, HTTPURLResponse) {
-        var urlRequest = URLRequest(url: self.url.url!)
-        if self.method == HTTPMethod.POST || self.method == HTTPMethod.PUT {
-            urlRequest.httpBody = self.bodyData
-            urlRequest.setValue(self.bodyContentType, forHTTPHeaderField: "Content-Type")
+    func makeRequest() async throws -> HTTPClientResponse {
+        
+        var urlRequest = HTTPClientRequest(url: self.url.string!)
+        if self.method == .POST || self.method == .PUT {
+            urlRequest.body = .bytes(self.bodyData!)
+            urlRequest.headers.add(name: "Content-Type", value: self.bodyContentType!)
         }
-        if self.method == HTTPMethod.PUT {
+        if self.method == .PUT {
             if self.etag == nil {
                 throw EndpointError.ETagNotSpecified
             }
-            urlRequest.setValue(self.etag!, forHTTPHeaderField: "If-Match")
+            urlRequest.headers.add(name: "If-Match", value: self.etag!)
         }
-        urlRequest.httpMethod = self.method.rawValue
-        urlRequest.setValue("RequestTrackerFoundation/1.0", forHTTPHeaderField: "User-Agent")
+        urlRequest.method = self.method
+        urlRequest.headers.add(name: "User-Agent", value: "RequestTrackerFoundation/1.0")
         
         if self.authenticationType == .BasicAuth {
             if !self.credentials.contains(":") {
                 throw EndpointError.InvalidCredentials
             }
-            urlRequest.setValue("Basic \(self.credentials.data(using: .utf8)!.base64EncodedString())", forHTTPHeaderField: "Authorization")
+            urlRequest.headers.add(name: "Authorization", value: "Basic \(self.credentials.data(using: .utf8)!.base64EncodedString())")
         }
         
         else if self.authenticationType == .TokenAuth {
-            urlRequest.setValue("token \(self.credentials)", forHTTPHeaderField: "Authorization")
+            urlRequest.headers.add(name: "Authorization", value: "token \(self.credentials)")
         }
         do {
             if self.debug {
                 print("DEBUG: Printing URLRequest before sending:")
                 print(urlRequest)
             }
-            let (data, response) = try await self.urlSession.data(for: urlRequest)
-            return (data, response as! HTTPURLResponse)
+            let response = try await httpClient.execute(urlRequest, timeout: .seconds(30))
+            return response
         }
         catch {
             throw EndpointError.NetworkRequestFailed

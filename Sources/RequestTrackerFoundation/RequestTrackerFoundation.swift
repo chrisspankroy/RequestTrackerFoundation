@@ -1,5 +1,14 @@
 import Foundation
 import FoundationNetworking
+import AsyncHTTPClient
+import Foundation
+import Logging
+import NIO
+import NIOConcurrencyHelpers
+import NIOFoundationCompat
+import NIOHTTP1
+import NIOHTTPCompression
+import NIOSSL
 
 /**
  Provides core errors that can be thrown by RequestTrackerFoundation
@@ -32,7 +41,7 @@ public struct RequestTrackerFoundation {
     var rtServerHost : String
     var authenticationType : AuthenticationType
     var credentials : String
-    var urlSession : URLSession?
+    var httpClient : HTTPClient?
     
     /**
      Instantiates a new RequestTrackerFoundation
@@ -50,20 +59,21 @@ public struct RequestTrackerFoundation {
         self.credentials = credentials
         
         print("Using RT Host \(self.rtServerHost) on port 443")
-        self.urlSession = URLSession(configuration: .default)
+        self.httpClient = HTTPClient(eventLoopGroupProvider: .createNew)
     
         // Validate given URL is a RT server running REST 2 API
         // This validates credentials as well
-        var endpoint = Endpoint(urlSession: self.urlSession!, host: self.rtServerHost, path: "/rt", authenticationType: .None, credentials: "", method: HTTPMethod.GET)
-        var (data, response) = try await endpoint.makeRequest()
-        switch response.statusCode {
+        var endpoint = Endpoint(httpClient: self.httpClient!, host: self.rtServerHost, path: "/rt", authenticationType: .None, credentials: "", method: .GET)
+        var response = try await endpoint.makeRequest()
+        switch response.status.code {
         case 401: break
         default: throw RequestTrackerFoundationError.ServerIsNotRT
         }
         
-        endpoint = Endpoint(urlSession: self.urlSession!, host: self.rtServerHost, path: "/rt", authenticationType: authenticationType, credentials: credentials, method: HTTPMethod.GET)
-        (data, response) = try await endpoint.makeRequest()
-        switch response.statusCode {
+        endpoint = Endpoint(httpClient: self.httpClient!, host: self.rtServerHost, path: "/rt", authenticationType: authenticationType, credentials: credentials, method: .GET)
+        response = try await endpoint.makeRequest()
+        var data = response.body
+        switch response.status.code {
         case 200: break
         case 401: throw RequestTrackerFoundationError.InvalidCredentials
         default: throw RequestTrackerFoundationError.ServerIsNotRT
@@ -72,7 +82,7 @@ public struct RequestTrackerFoundation {
         print("Status code looks OK, verifying actual response...")
         
         do {
-            let json = try JSONSerialization.jsonObject(with: data) as? [String : Any]
+            let json = try JSONSerialization.jsonObject(with: Data(buffer: data)) as? [String : Any]
             if json!["Version"] == nil {
                 throw RequestTrackerFoundationError.ServerIsNotRT
             }
@@ -83,5 +93,12 @@ public struct RequestTrackerFoundation {
         
         print("Host \(rtServerHost) verified as RT server running v2 of REST API")
         print("Request Tracker Foundation initialized")
+    }
+
+    /**
+    Shuts down HTTP Client (disruptive to any pending requests). This must be called.
+     */
+    public func shutdown() async throws {
+        try await self.httpClient!.shutdown()
     }
 }

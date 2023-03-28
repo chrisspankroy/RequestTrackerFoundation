@@ -7,6 +7,7 @@
 
 import Foundation
 import FoundationNetworking
+import AsyncHTTPClient
 
 /**
  Provides possible errors that can be thrown when running a utility function
@@ -94,7 +95,7 @@ func mergeDicts(lhs: Any?, rhs: Any?) throws -> Array<[String:Any]> {
  
  - Returns: A de-paginated array of dictionaries
  */
-func fetchAndMergePaginatedData(firstPage: [String : Any], urlSession: URLSession, host: String, authenticationType: AuthenticationType, credentials: String) async throws -> Array<[String : Any]> {
+func fetchAndMergePaginatedData(firstPage: [String : Any], httpClient: HTTPClient, host: String, authenticationType: AuthenticationType, credentials: String) async throws -> Array<[String : Any]> {
     if firstPage["next_page"] == nil && firstPage["prev_page"] == nil {
         // If these doesn't exist, then there is only one page
         return firstPage["items"] as! Array<[String:Any]>
@@ -107,8 +108,9 @@ func fetchAndMergePaginatedData(firstPage: [String : Any], urlSession: URLSessio
     var next_page_url = URL(string: firstPage["next_page"] as! String)
     
     while next_page_url != nil {
-        let endpoint = Endpoint(urlSession: urlSession, url: next_page_url!, authenticationType: authenticationType, credentials: credentials, method: HTTPMethod.GET)
-        let (data, response) = try await endpoint.makeRequest()
+        let endpoint = Endpoint(httpClient: httpClient, url: next_page_url!, authenticationType: authenticationType, credentials: credentials, method: HTTPMethod.GET)
+        let response = try await endpoint.makeRequest()
+        let data = Data(buffer: response.body)
         if response.statusCode == 200 {
             do {
                 let json = try JSONSerialization.jsonObject(with: data) as? [String : Any]

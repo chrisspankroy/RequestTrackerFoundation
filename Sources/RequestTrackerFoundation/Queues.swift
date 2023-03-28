@@ -39,14 +39,15 @@ extension RequestTrackerFoundation {
      - Returns: An `Array` of `RTObject`s that represents all visible queues. Pass to `getQueues()` for detailed queue information
      */
     public func getQueueRefs() async throws -> [RTObject] {
-        if self.urlSession == nil {
+        if self.httpClient == nil {
             throw RequestTrackerFoundationError.RequestTrackerFoundationNotInitialized
         }
-        let endpoint = Endpoint(urlSession: self.urlSession!, host: self.rtServerHost, path: "/queues/all", authenticationType: self.authenticationType, credentials: self.credentials, method: HTTPMethod.GET, fields: "Name")
-        let (data, _) = try await endpoint.makeRequest()
+        let endpoint = Endpoint(httpClient: self.httpClient!, host: self.rtServerHost, path: "/queues/all", authenticationType: self.authenticationType, credentials: self.credentials, method: .GET, fields: "Name")
+        let response = try await endpoint.makeRequest()
+        let data = Data(buffer: response.body)
         let json = try JSONSerialization.jsonObject(with: data) as? [String : Any]
         if keysExist(dict: json!, keysToCheck: ["page", "total", "pages", "count", "per_page", "items"]) {
-            let queues = try await fetchAndMergePaginatedData(firstPage: json!, urlSession: self.urlSession!, host: self.rtServerHost, authenticationType: authenticationType, credentials: credentials)
+            let queues = try await fetchAndMergePaginatedData(firstPage: json!, httpClient: self.httpClient!, host: self.rtServerHost, authenticationType: authenticationType, credentials: credentials)
             if queues.count == 0 {
                 return []
             }
@@ -78,13 +79,14 @@ extension RequestTrackerFoundation {
      - Returns: An `Array` of `Queue`s that represents all visible queues
      */
     public func getQueues(queues: [RTObject]) async throws -> [Queue] {
-        if self.urlSession == nil {
+        if self.httpClient == nil {
             throw RequestTrackerFoundationError.RequestTrackerFoundationNotInitialized
         }
         var detailedQueues = [Queue]()
         for rtobject in queues {
-            let endpoint = Endpoint(urlSession: self.urlSession!, url: rtobject._url, authenticationType: self.authenticationType, credentials: self.credentials, method: HTTPMethod.GET)
-            let (data, _) = try await endpoint.makeRequest()
+            let endpoint = Endpoint(httpClient: self.httpClient!, url: rtobject._url, authenticationType: self.authenticationType, credentials: self.credentials, method: .GET)
+            let response = try await endpoint.makeRequest()
+            let data = Data(buffer: response.body)
             let json = try JSONSerialization.jsonObject(with: data)
             let queue = try JSONDecoder().decode(Queue.self, from: JSONSerialization.data(withJSONObject: json))
             detailedQueues.append(queue)
@@ -93,7 +95,7 @@ extension RequestTrackerFoundation {
     }
     
     public func getMemberTicketStats(queue: Queue) async throws -> [String:Int] {
-        if self.urlSession == nil {
+        if self.httpClient == nil {
             throw RequestTrackerFoundationError.RequestTrackerFoundationNotInitialized
         }
         let newResponse = try await search(query: "Queue = '\(queue.Name)' AND Status = '__Active__'", fields: "Status")
