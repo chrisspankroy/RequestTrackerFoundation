@@ -62,7 +62,7 @@ public struct RequestTrackerFoundation {
         
         print("[RTF] Using RT Host \(self.rtServerHost) on port 443")
         self.httpClient = HTTPClient(eventLoopGroupProvider: .createNew)
-    
+	print(self.httpClient == nil)    
         // Validate given URL is a RT server running REST 2 API
         // This validates credentials as well
         var endpoint = Endpoint(httpClient: self.httpClient!, host: self.rtServerHost, path: "/rt", authenticationType: .None, credentials: "", method: .GET)
