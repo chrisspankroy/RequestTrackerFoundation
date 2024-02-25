@@ -6,7 +6,9 @@
 //
 
 import Foundation
+#if canImport(FoundationNetworking)
 import FoundationNetworking
+#endif
 
 enum UserError : Error {
     case FailedToDecodeServerResponse

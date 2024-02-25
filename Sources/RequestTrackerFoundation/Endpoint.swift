@@ -6,7 +6,9 @@
 //
 
 import Foundation
-import FoundationNetworking
+#if canImport(FoundationNetworking)
+	import FoundationNetworking
+#endif
 import AsyncHTTPClient
 import Foundation
 import Logging

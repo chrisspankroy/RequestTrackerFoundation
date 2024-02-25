@@ -6,7 +6,9 @@
 //
 
 import Foundation
+#if canImport(FoundationNetworking)
 import FoundationNetworking
+#endif
 
 /**
  Provides errors that can be thrown by ticket-related functions
