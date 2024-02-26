@@ -1,7 +1,5 @@
 import Foundation
-#if canImport(FoundationNetworking)
 import FoundationNetworking
-#endif
 import AsyncHTTPClient
 import Foundation
 import Logging
@@ -53,31 +51,41 @@ public struct RequestTrackerFoundation {
         - authenticationType: The `AuthenticationType` to use for authentication
         - credentials: The credentials to use for authentication. Should be applicable to `authenticationType`
      */
-    public init(rtServerHost : String, authenticationType : AuthenticationType, credentials : String) async throws {
+    public init?(rtServerHost : String, authenticationType : AuthenticationType, credentials : String) async throws {
         print("[RTF] Initializing RequestTrackerFoundation...")
+
         self.rtServerHost = rtServerHost
         self.authenticationType = authenticationType
         self.credentials = credentials
         
         print("[RTF] Using RT Host \(self.rtServerHost) on port 443")
         self.httpClient = HTTPClient(eventLoopGroupProvider: .createNew)
-
+    
         // Validate given URL is a RT server running REST 2 API
         // This validates credentials as well
         var endpoint = Endpoint(httpClient: self.httpClient!, host: self.rtServerHost, path: "/rt", authenticationType: .None, credentials: "", method: .GET)
         var response = try await endpoint.makeRequest()
-        switch response.status.code {
-        case 401: break
-        default: throw RequestTrackerFoundationError.ServerIsNotRT
-        }
+
+	if response.status.code != 401 {
+                print("Specified server is not a RT server")
+		await try shutdown()
+		return nil
+	}
         
         endpoint = Endpoint(httpClient: self.httpClient!, host: self.rtServerHost, path: "/rt", authenticationType: authenticationType, credentials: credentials, method: .GET)
         response = try await endpoint.makeRequest()
         let data = try await response.body.collect(upTo: 1024 * 1024 * 100) // 100MB
-        switch response.status.code {
-        case 200: break
-        case 401: throw RequestTrackerFoundationError.InvalidCredentials
-        default: throw RequestTrackerFoundationError.ServerIsNotRT
+
+	if response.status.code == 401 {
+		print("Provided credentials were invalid")
+		await try shutdown()
+		return nil
+	}
+
+        if response.status.code != 200 {
+                print("Specified server is not a RT server")
+                await try shutdown()
+                return nil
         }
         
         print("[RTF] Status code looks OK, verifying actual response...")
@@ -85,11 +93,15 @@ public struct RequestTrackerFoundation {
         do {
             let json = try JSONSerialization.jsonObject(with: Data(buffer: data)) as? [String : Any]
             if json!["Version"] == nil {
-                throw RequestTrackerFoundationError.ServerIsNotRT
+		print("Specified server is not a RT server")
+		await try shutdown()
+		return nil
             }
         }
         catch {
-            throw RequestTrackerFoundationError.ServerIsNotRT
+	    print("Specified server is not a RT server")
+	    await try shutdown()
+	    return nil
         }
         print("[RTF] Host \(rtServerHost) verified as RT server running v2 of REST API")
         print("[RTF] Request Tracker Foundation initialized")
