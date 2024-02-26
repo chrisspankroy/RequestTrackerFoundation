@@ -55,7 +55,7 @@ public struct RequestTrackerFoundation {
      */
     public init(rtServerHost : String, authenticationType : AuthenticationType, credentials : String) async throws {
         print("[RTF] Initializing RequestTrackerFoundation...")
-        
+	throw RequestTrackerFoundationError.InvalidCredentials        
         self.rtServerHost = rtServerHost
         self.authenticationType = authenticationType
         self.credentials = credentials
