@@ -1,5 +1,7 @@
 import Foundation
+#if !os(macOS))
 import FoundationNetworking
+#endif
 import AsyncHTTPClient
 import Foundation
 import Logging
